@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -43,10 +43,15 @@ func EditFile(input json.RawMessage) (string, error) {
 		return "", fmt.Errorf("invalid input parameters")
 	}
 
-	content, err := os.ReadFile(editFileInput.Path)
+	resolvedPath, err := resolvePath(editFileInput.Path)
+	if err != nil {
+		return "", err
+	}
+
+	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		if os.IsNotExist(err) && editFileInput.OldStr == "" {
-			return createNewFile(editFileInput.Path, editFileInput.NewStr)
+			return createNewFile(resolvedPath, editFileInput.NewStr)
 		}
 		return "", err
 	}
@@ -58,7 +63,7 @@ func EditFile(input json.RawMessage) (string, error) {
 		return "", fmt.Errorf("old_str not found in file")
 	}
 
-	err = os.WriteFile(editFileInput.Path, []byte(newContent), 0644)
+	err = os.WriteFile(resolvedPath, []byte(newContent), 0644)
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +73,7 @@ func EditFile(input json.RawMessage) (string, error) {
 
 // createNewFile creates a new file.
 func createNewFile(filePath, content string) (string, error) {
-	dir := path.Dir(filePath)
+	dir := filepath.Dir(filePath)
 	if dir != "." {
 		err := os.MkdirAll(dir, 0755)
 		if err != nil {
@@ -81,5 +86,5 @@ func createNewFile(filePath, content string) (string, error) {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully created file %s", filePath), nil
+	return fmt.Sprintf("Successfully created file %s", displayPath(filePath)), nil
 }

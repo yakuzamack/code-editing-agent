@@ -1,0 +1,5 @@
+Using provider: nvidia
+Using working directory: /Users/home/Projects/crypto-framework
+Using model: deepseek-ai/deepseek-v3.2
+Chat with NVIDIA (use 'ctrl-c' to quit)
+[94mYou[0m: 

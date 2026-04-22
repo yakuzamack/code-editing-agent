@@ -12,6 +12,15 @@ var Definitions = []Definition{
 	ReadFileDefinition,
 	ListFilesDefinition,
 	EditFileDefinition,
+	SearchCodeDefinition,
+	RunCommandDefinition,
+	SearchKnowledgeDefinition,
+	CryptoTestDefinition,
+	CryptoBuildDefinition,
+	ListFrameworkComponentsDefinition,
+	GitDiffDefinition,
+	GithubPRDefinition,
+	ProjectTreeDefinition,
 }
 
 // GenerateSchema generates a schema from a struct.
