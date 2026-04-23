@@ -28,6 +28,8 @@ go.work.sum
 .env
 
 # Built binaries
+agent
+code-editing-agent
 copilot-agent
 utm_validate
 utm_validate_cmd
