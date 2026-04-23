@@ -1,0 +1,76 @@
+name: Copilot PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  review:
+    name: Automated PR Review
+    runs-on: ubuntu-latest
+    # Prevent infinite loops — only run on non-bot PRs
+    if: ${{ github.actor != 'github-actions[bot]' && github.actor != 'dependabot[bot]' }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git_diff tool
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install gopls (for MCP tools)
+        run: go install golang.org/x/tools/gopls@latest
+
+      - name: Build the copilot review agent
+        run: go build -v -o copilot-agent ./main.go
+
+      - name: Review the PR
+        id: review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          # Run the agent in copilot-pr mode, targeting this PR
+          ./copilot-agent copilot-pr \
+            --owner "${{ github.repository_owner }}" \
+            --repo "${{ github.event.repository.name }}" \
+            --number "${{ github.event.pull_request.number }}" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --output review.md
+
+      - name: Post review comment
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f review.md ] && [ -s review.md ]; then
+            # Post as a PR review comment
+            gh pr review "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --comment \
+              --body "$(cat review.md)"
+          else
+            echo "No review comments generated (empty output)."
+          fi

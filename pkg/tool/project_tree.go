@@ -32,35 +32,35 @@ type ProjectTreeInput struct {
 
 // noiseDirs are directory names that are always excluded from the tree.
 var noiseDirs = map[string]bool{
-	"node_modules":       true,
-	"vendor":             true,
-	".git":               true,
-	".idea":              true,
-	".vscode":            true,
-	"__pycache__":        true,
-	"generated-beacons":  true,
-	"dist":               true,
-	"build":              true,
-	".next":              true,
-	"coverage":           true,
+	"node_modules":      true,
+	"vendor":            true,
+	".git":              true,
+	".idea":             true,
+	".vscode":           true,
+	"__pycache__":       true,
+	"generated-beacons": true,
+	"dist":              true,
+	"build":             true,
+	".next":             true,
+	"coverage":          true,
 }
 
 // noiseFiles are file patterns that are always excluded.
 var noiseFileExts = map[string]bool{
-	".pyc":    true,
-	".pyo":    true,
-	".class":  true,
-	".o":      true,
-	".a":      true,
-	".so":     true,
-	".dylib":  true,
+	".pyc":      true,
+	".pyo":      true,
+	".class":    true,
+	".o":        true,
+	".a":        true,
+	".so":       true,
+	".dylib":    true,
 	".DS_Store": true,
 }
 
 // noiseFileNames are exact filenames to skip.
 var noiseFileNames = map[string]bool{
-	".DS_Store":    true,
-	".coverage":    true,
+	".DS_Store":     true,
+	".coverage":     true,
 	"server-binary": true,
 }
 
@@ -181,7 +181,7 @@ func walkTree(root, dir string, depth, maxDepth int, showFiles bool) (string, er
 			if noiseDirs[name] {
 				continue
 			}
-			sb.WriteString(fmt.Sprintf("%s%s/\n", prefix, name))
+			fmt.Fprintf(&sb, "%s%s/\n", prefix, name)
 			sub, err := walkTree(root, filepath.Join(dir, name), depth+1, maxDepth, showFiles)
 			if err == nil {
 				sb.WriteString(sub)
@@ -191,7 +191,7 @@ func walkTree(root, dir string, depth, maxDepth int, showFiles bool) (string, er
 			if noiseFileExts[ext] || noiseFileNames[name] {
 				continue
 			}
-			sb.WriteString(fmt.Sprintf("%s%s\n", prefix, name))
+			fmt.Fprintf(&sb, "%s%s\n", prefix, name)
 		}
 	}
 

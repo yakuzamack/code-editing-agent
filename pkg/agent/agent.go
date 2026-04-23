@@ -56,7 +56,7 @@ func (a *agent) Run(ctx context.Context) error {
 	conversation := []deepseek.ChatCompletionMessage{
 		{
 			Role:    deepseek.ChatMessageRoleSystem,
-			Content: "You are a senior software engineer assistant. Always respond in English. You have access to tools to read, edit, search, run shell commands, inspect git diffs, and review GitHub Pull Requests in the user's project directory.\n\n## Improvement Workflow\nWhen asked to improve or fix code:\n1. Use list_files or search_code to locate the relevant files.\n2. Use read_file to understand the current implementation.\n3. Use git_diff to see any existing uncommitted changes.\n4. Use edit_file to apply the fix or improvement.\n5. Use crypto_test or run_command (go build ./...) to verify the change compiles and tests pass.\n6. Summarize what you changed and why.\n\n## PR Review Workflow\nWhen asked to review a GitHub PR:\n1. Use github_pr with the owner, repo, and PR number to fetch the diff.\n2. Analyze the diff for: bugs, security issues, missing tests, performance problems, and style issues.\n3. Suggest concrete fixes. If the user says 'apply it', use edit_file to make the changes directly.\n\nBe concise and technical. Prefer action over explanation.",
+			Content: "You are a senior software engineer assistant. Always respond in English. You have access to tools to read, edit, search, run shell commands, inspect git diffs, and review GitHub Pull Requests in the user's project directory.\n\n## File Reading Strategy (Critical for Large Projects)\nALWAYS use smart_read_file (not read_file) for reading files. smart_read_file offers 4 strategies:\n1. **summary=true** — Show file outline (function signatures, types, constants with line numbers). Use this FIRST when exploring a new file.\n2. **symbol=\"Name\"** — Extract only a specific function/type/method. Much faster for large files.\n3. **line_start=N&line_end=M** — Read exact line range.\n4. **No args** — Full file with auto-truncation at 500 lines. Avoid for files over 1000 lines.\n\n## Improvement Workflow\nWhen asked to improve or fix code:\n1. Use list_files or search_code to locate the relevant files.\n2. Use smart_read_file with summary=true to see the file structure.\n3. Use smart_read_file with symbol=\"...\" to extract relevant functions.\n4. Use git_diff to see any existing uncommitted changes.\n5. Use edit_file to apply the fix or improvement.\n6. Use crypto_test or run_command (go build ./...) to verify the change compiles and tests pass.\n7. Summarize what you changed and why.\n\n## PR Review Workflow\nWhen asked to review a GitHub PR:\n1. Use github_pr with the owner, repo, and PR number to fetch the diff.\n2. Analyze the diff for: bugs, security issues, missing tests, performance problems, and style issues.\n3. Suggest concrete fixes. If the user says 'apply it', use edit_file to make the changes directly.\n\nBe concise and technical. Prefer action over explanation.",
 		},
 	}
 	fmt.Printf("Chat with %s (use 'ctrl-c' to quit)\n", a.assistantName)
@@ -116,7 +116,11 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 		if err != nil {
 			return nil, err
 		}
-		defer stream.Close()
+		defer func() {
+			if err := stream.Close(); err != nil {
+				fmt.Printf("Warning: failed to close stream: %v\n", err)
+			}
+		}()
 
 		var fullContent strings.Builder
 		var toolCalls []deepseek.ToolCall
@@ -207,7 +211,11 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 	if err != nil {
 		return nil, err
 	}
-	defer stream.Close()
+	defer func() {
+		if err := stream.Close(); err != nil {
+			fmt.Printf("Warning: Failed to close stream: %v\n", err)
+		}
+	}()
 
 	var fullContent strings.Builder
 	var role string
@@ -260,75 +268,6 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 		Role:    role,
 		Content: fullContent.String(),
 	}, nil
-}
-
-func shouldUseTools(input string) bool {
-	input = strings.ToLower(input)
-
-	keywords := []string{
-		"file",
-		"files",
-		"folder",
-		"directory",
-		"dir",
-		"read",
-		"open",
-		"list",
-		"show",
-		"search",
-		"grep",
-		"edit",
-		"write",
-		"replace",
-		"change",
-		"update",
-		"create",
-		"delete",
-		"rename",
-		"project",
-		"repo",
-		"repository",
-		"framework",
-		"code",
-		"bug",
-		"fix",
-		"refactor",
-		"run",
-		"command",
-		"shell",
-		"test",
-		"build",
-		"function",
-		"package",
-		"import",
-		"path",
-		"main.go",
-		".go",
-		"knowledge",
-		"pinecone",
-		"base",
-		"pattern",
-		"context",		"diff",
-		"pr",
-		"pull request",
-		"pull-request",
-		"review",
-		"git",
-		"commit",
-		"branch",
-		"improve",
-		"fix",
-		"refactor",
-		"issue",
-		"bug",	}
-
-	for _, keyword := range keywords {
-		if strings.Contains(input, keyword) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // executeTool executes the tool and returns the result.

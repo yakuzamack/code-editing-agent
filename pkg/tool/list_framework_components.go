@@ -26,16 +26,16 @@ func ExecuteListFrameworkComponents(input json.RawMessage) (string, error) {
 		path := filepath.Join(workingDir, d)
 		entries, err := os.ReadDir(path)
 		if err != nil {
-			result.WriteString(fmt.Sprintf("Error reading %s: %v\n", d, err))
+			fmt.Fprintf(&result, "Error reading %s: %v\n", d, err)
 			continue
 		}
 
-		result.WriteString(fmt.Sprintf("\n### %s/\n", d))
+		fmt.Fprintf(&result, "\n### %s/\n", d)
 		for _, entry := range entries {
 			if entry.IsDir() {
-				result.WriteString(fmt.Sprintf("- %s/\n", entry.Name()))
+				fmt.Fprintf(&result, "- %s/\n", entry.Name())
 			} else {
-				result.WriteString(fmt.Sprintf("- %s\n", entry.Name()))
+				fmt.Fprintf(&result, "- %s\n", entry.Name())
 			}
 		}
 	}

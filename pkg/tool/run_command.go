@@ -102,11 +102,3 @@ func RunCommand(input json.RawMessage) (string, error) {
 
 	return string(payload), nil
 }
-
-func truncateOutput(output string, limit int) string {
-	if len(output) <= limit {
-		return output
-	}
-
-	return output[:limit] + "\n... output truncated ..."
-}

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -94,7 +95,11 @@ func SearchCode(input json.RawMessage) (string, error) {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				fmt.Printf("Warning: failed to close file %s: %v\n", path, err)
+			}
+		}()
 
 		scanner := bufio.NewScanner(file)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -149,7 +154,11 @@ func isBinaryFile(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("Warning: failed to close file %s: %v\n", path, err)
+		}
+	}()
 
 	buffer := make([]byte, 8000)
 	bytesRead, err := file.Read(buffer)

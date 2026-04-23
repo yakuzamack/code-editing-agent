@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 // GithubPRDefinition is the definition for the github_pr tool.
 var GithubPRDefinition = Definition{
 	Name:        "github_pr",
@@ -70,9 +69,9 @@ func ExecuteGithubPR(input json.RawMessage) (string, error) {
 			return filesJSON, nil // return raw if parse fails
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("## PR #%d Changed Files (%d files)\n\n", args.Number, len(files)))
+		fmt.Fprintf(&sb, "## PR #%d Changed Files (%d files)\n\n", args.Number, len(files))
 		for _, f := range files {
-			sb.WriteString(fmt.Sprintf("%-10s +%-4d -%-4d  %s\n", f.Status, f.Additions, f.Deletions, f.Filename))
+			fmt.Fprintf(&sb, "%-10s +%-4d -%-4d  %s\n", f.Status, f.Additions, f.Deletions, f.Filename)
 		}
 		return sb.String(), nil
 	}
@@ -128,7 +127,12 @@ func githubAPIGet(url, token, accept string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the operation
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

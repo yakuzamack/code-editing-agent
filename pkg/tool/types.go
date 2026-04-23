@@ -9,6 +9,7 @@ import (
 
 // Definitions is the list of all tool definitions.
 var Definitions = []Definition{
+	SmartReadFileDefinition,
 	ReadFileDefinition,
 	ListFilesDefinition,
 	EditFileDefinition,
@@ -21,6 +22,7 @@ var Definitions = []Definition{
 	GitDiffDefinition,
 	GithubPRDefinition,
 	ProjectTreeDefinition,
+	UTMValidateDefinition,
 }
 
 // GenerateSchema generates a schema from a struct.
