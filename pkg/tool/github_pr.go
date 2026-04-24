@@ -20,15 +20,15 @@ var GithubPRDefinition = Definition{
 // GithubPRInput is the input for the github_pr tool.
 type GithubPRInput struct {
 	// Owner is the GitHub repository owner (e.g. "promacanthus").
-	Owner string `jsonschema:"description=GitHub repository owner (e.g. promacanthus)."`
+	Owner string `json:"owner" jsonschema:"description=GitHub repository owner (e.g. promacanthus)."`
 	// Repo is the repository name (e.g. "crypto-framework").
-	Repo string `jsonschema:"description=GitHub repository name (e.g. crypto-framework)."`
+	Repo string `json:"repo" jsonschema:"description=GitHub repository name (e.g. crypto-framework)."`
 	// Number is the PR number.
-	Number int `jsonschema:"description=The pull request number to review."`
+	Number int `json:"number" jsonschema:"description=The pull request number to review."`
 	// DiffOnly fetches only the unified diff (no metadata) when true.
-	DiffOnly bool `jsonschema:"description=If true, return only the unified diff content without PR metadata."`
+	DiffOnly bool `json:"diff_only,omitempty" jsonschema:"description=If true, return only the unified diff content without PR metadata."`
 	// FilesOnly returns a compact list of changed files with stats (no diff content). Use this first on large PRs.
-	FilesOnly bool `jsonschema:"description=If true, return only the list of changed files with add/delete counts. Much smaller than the full diff — use this first to identify which files to inspect."`
+	FilesOnly bool `json:"files_only,omitempty" jsonschema:"description=If true, return only the list of changed files with add/delete counts. Much smaller than the full diff — use this first to identify which files to inspect."`
 }
 
 // ExecuteGithubPR fetches a PR's metadata and diff from the GitHub REST API.
