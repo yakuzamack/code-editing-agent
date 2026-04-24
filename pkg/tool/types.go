@@ -23,6 +23,7 @@ var Definitions = []Definition{
 	ListFrameworkComponentsDefinition,
 	GitDiffDefinition,
 	GithubPRDefinition,
+	GithubListPRsDefinition,
 	ProjectTreeDefinition,
 	UTMValidateDefinition,
 	ScaffoldModuleDefinition,
