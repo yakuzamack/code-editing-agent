@@ -31,6 +31,7 @@ go.work.sum
 /agent
 /code-editing-agent
 /copilot-agent
+/main
 /utm_validate
 /utm_validate_cmd
 

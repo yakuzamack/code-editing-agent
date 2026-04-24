@@ -195,6 +195,11 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 		}
 		fmt.Println()
 
+		// Ensure [Done Thinking] always prints if [Thinking...] was shown
+		if thinkingStarted {
+			fmt.Print("\n\u001b[90m[Done Thinking]\u001b[0m\n")
+		}
+
 		if role == "" {
 			role = deepseek.ChatMessageRoleAssistant
 		}
@@ -277,6 +282,11 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 		}
 	}
 	fmt.Println()
+
+	// Ensure [Done Thinking] always prints if [Thinking...] was shown
+	if thinkingStarted {
+		fmt.Print("\n\u001b[90m[Done Thinking]\u001b[0m\n")
+	}
 
 	if role == "" {
 		role = deepseek.ChatMessageRoleAssistant
