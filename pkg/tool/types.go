@@ -27,6 +27,7 @@ var Definitions = []Definition{
 	UTMValidateDefinition,
 	ScaffoldModuleDefinition,
 	FixCompileErrorsDefinition,
+	BatchFixModulesDefinition,
 }
 
 // GenerateSchema generates a schema from a struct.
