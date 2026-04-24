@@ -127,6 +127,7 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 		var toolCalls []deepseek.ToolCall
 		var role string
 		var thinkingStarted bool
+		var thinkingContentPrinted bool
 
 		fmt.Printf("\u001b[92m%s\u001b[0m: ", a.assistantName)
 
@@ -159,6 +160,7 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 					thinkingStarted = true
 				}
 				fmt.Print(delta.ReasoningContent)
+				thinkingContentPrinted = true
 			}
 
 			if delta.Content != "" {
@@ -195,8 +197,8 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 		}
 		fmt.Println()
 
-		// Ensure [Done Thinking] always prints if [Thinking...] was shown
-		if thinkingStarted {
+		// Print [Done Thinking] only if reasoning content was actually shown but never closed by content
+		if thinkingStarted && thinkingContentPrinted {
 			fmt.Print("\n\u001b[90m[Done Thinking]\u001b[0m\n")
 		}
 
@@ -243,6 +245,7 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 	var fullContent strings.Builder
 	var role string
 	var thinkingStarted bool
+	var thinkingContentPrinted bool
 
 	fmt.Printf("\u001b[92m%s\u001b[0m: ", a.assistantName)
 
@@ -270,6 +273,7 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 				thinkingStarted = true
 			}
 			fmt.Print(delta.ReasoningContent)
+			thinkingContentPrinted = true
 		}
 
 		if delta.Content != "" {
@@ -283,8 +287,8 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 	}
 	fmt.Println()
 
-	// Ensure [Done Thinking] always prints if [Thinking...] was shown
-	if thinkingStarted {
+	// Print [Done Thinking] only if reasoning content was actually shown but never closed by content
+	if thinkingStarted && thinkingContentPrinted {
 		fmt.Print("\n\u001b[90m[Done Thinking]\u001b[0m\n")
 	}
 
