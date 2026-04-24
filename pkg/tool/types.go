@@ -16,6 +16,8 @@ var Definitions = []Definition{
 	SearchCodeDefinition,
 	RunCommandDefinition,
 	SearchKnowledgeDefinition,
+	PineconeIngestDefinition,
+	FrameworkStatusDefinition,
 	CryptoTestDefinition,
 	CryptoBuildDefinition,
 	ListFrameworkComponentsDefinition,
@@ -23,6 +25,8 @@ var Definitions = []Definition{
 	GithubPRDefinition,
 	ProjectTreeDefinition,
 	UTMValidateDefinition,
+	ScaffoldModuleDefinition,
+	FixCompileErrorsDefinition,
 }
 
 // GenerateSchema generates a schema from a struct.

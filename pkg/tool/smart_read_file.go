@@ -1,7 +1,6 @@
 package tool
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,7 +11,7 @@ import (
 // SmartReadFileDefinition is the definition for the smart_read_file tool.
 var SmartReadFileDefinition = Definition{
 	Name:        "smart_read_file",
-	Description: "Intelligently read a file by extracting only relevant code sections. Provides 4 strategies: (1) extract by symbol name (function/type/method/constant), (2) read exact line range, (3) file summary listing all top-level symbols, (4) full file with truncation. Headers show line numbers and file stats. Always prefer this over plain read_file for large files.",
+	Description: "Intelligently read a file by extracting only relevant code sections. Provides 4 strategies: (1) extract by symbol name (function/type/method/constant), (2) read exact line range, (3) file summary listing all top-level symbols, (4) full file with truncation. Headers show line numbers and file stats. Always prefer this over plain read_file for large files. Handles long lines (e.g. minified, base64) gracefully.",
 	InputSchema: GenerateSchema[SmartReadFileInput](),
 	Function:    SmartReadFile,
 }
@@ -39,6 +38,20 @@ type SmartReadFileInput struct {
 	ContextLines int `json:"context_lines" jsonschema:"description=Optional: number of lines of surrounding context to include when extracting a symbol. Default 0."`
 }
 
+// readFileLines reads a file and returns its lines, handling arbitrarily long lines.
+// Uses os.ReadFile + strings.Split instead of bufio.Scanner to avoid the 1MB token limit.
+func readFileLines(resolvedPath string) ([]string, error) {
+	data, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		return nil, err
+	}
+	// Normalize line endings
+	content := string(data)
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	return strings.Split(content, "\n"), nil
+}
+
 // topLevelSymbol represents a parsed top-level declaration in a Go file.
 type topLevelSymbol struct {
 	Kind     string // func, type, const, var, struct, interface
@@ -61,11 +74,11 @@ var (
 func SmartReadFile(input json.RawMessage) (string, error) {
 	var params SmartReadFileInput
 	if err := json.Unmarshal(input, &params); err != nil {
-		return "", fmt.Errorf("smart_read_file: invalid input: %w", err)
+		return "", fmt.Errorf("smart_read_file: invalid input: %w.\nIf you see a JSON parse error, try using read_file instead which has a simpler input format.", err)
 	}
 
 	if params.Path == "" {
-		return "", fmt.Errorf("smart_read_file: path is required")
+		return "", fmt.Errorf("smart_read_file: path is required. Usage: smart_read_file{\"path\":\"file.go\"} with optional symbol, line_start/line_end, summary, or max_lines")
 	}
 
 	resolvedPath, err := resolvePath(params.Path)
@@ -81,21 +94,10 @@ func SmartReadFile(input json.RawMessage) (string, error) {
 		return "", fmt.Errorf("smart_read_file: %q is a directory, not a file", params.Path)
 	}
 
-	// Read all lines
-	file, err := os.Open(resolvedPath)
+	// Use the safe line reader that handles long lines
+	lines, err := readFileLines(resolvedPath)
 	if err != nil {
-		return "", fmt.Errorf("smart_read_file: %w", err)
-	}
-	defer file.Close()
-
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("smart_read_file: error reading file: %w", err)
+		return "", fmt.Errorf("smart_read_file: error reading %q: %w", params.Path, err)
 	}
 
 	if len(lines) == 0 {

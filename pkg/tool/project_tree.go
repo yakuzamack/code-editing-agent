@@ -158,6 +158,8 @@ func walkTree(root, dir string, depth, maxDepth int, showFiles bool) (string, er
 		return "", err
 	}
 
+	skipFilter := MakeGitIgnoreFilter(root)
+
 	sort.Slice(entries, func(i, j int) bool {
 		// Dirs before files, then alphabetical
 		if entries[i].IsDir() != entries[j].IsDir() {
@@ -177,12 +179,18 @@ func walkTree(root, dir string, depth, maxDepth int, showFiles bool) (string, er
 			continue
 		}
 
+		absPath := filepath.Join(dir, name)
+
 		if e.IsDir() {
 			if noiseDirs[name] {
 				continue
 			}
+			// Check .gitignore
+			if skipFilter(absPath, nil) {
+				continue
+			}
 			fmt.Fprintf(&sb, "%s%s/\n", prefix, name)
-			sub, err := walkTree(root, filepath.Join(dir, name), depth+1, maxDepth, showFiles)
+			sub, err := walkTree(root, absPath, depth+1, maxDepth, showFiles)
 			if err == nil {
 				sb.WriteString(sub)
 			}

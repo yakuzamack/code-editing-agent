@@ -42,7 +42,7 @@ jobs:
         run: go install golang.org/x/tools/gopls@latest
 
       - name: Build the copilot review agent
-        run: go build -v -o copilot-agent ./main.go
+        run: go build -v -o copilot-agent ./cmd/agent
 
       - name: Review the PR
         id: review

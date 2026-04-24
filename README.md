@@ -30,7 +30,7 @@ This project is a Go-based code editing agent that talks to OpenAI-compatible ch
 
 The agent works by sending your chat messages to a chat-completions API, along with a set of available tools. The configured model can then decide to use one of these tools to fulfill your request.
 
-For example, if you ask the agent to "read the `main.go` file", it will call the `read_file` tool with the path `main.go`. The output of the tool will then be sent back to the DeepSeek model, which will use it to generate a response.
+For example, if you ask the agent to "read the agent source code", it will call the `read_file` tool with the path `pkg/agent/agent.go`. The output of the tool will then be sent back to the DeepSeek model, which will use it to generate a response.
 
 ## Getting Started
 
@@ -112,7 +112,7 @@ NVIDIA_ASSISTANT_NAME=NVIDIA
 To run the agent, execute the following command:
 
 ```bash
-go run main.go
+go run ./cmd/agent
 ```
 
 You can then start chatting with the agent in your terminal.
@@ -120,19 +120,19 @@ You can then start chatting with the agent in your terminal.
 To point the agent at a different project, pass `--workdir`:
 
 ```bash
-go run main.go --workdir /Users/home/Projects/crypto-framework
+go run ./cmd/agent --workdir /Users/home/Projects/crypto-framework
 ```
 
 If `.env` already contains `LLM_PROVIDER`, `LLM_WORKDIR`, and the selected provider's settings, a plain startup is enough:
 
 ```bash
-go run main.go
+go run ./cmd/agent
 ```
 
 You can switch providers at launch time too:
 
 ```bash
-go run main.go \
+go run ./cmd/agent \
     --provider nvidia \
     --workdir /Users/home/Projects/crypto-framework \
     --base-url https://integrate.api.nvidia.com/v1/ \
@@ -143,7 +143,7 @@ go run main.go \
 Or switch back to DeepSeek without changing `.env`:
 
 ```bash
-go run main.go --provider deepseek
+go run ./cmd/agent --provider deepseek
 ```
 
 ## Tools
@@ -160,22 +160,33 @@ The following tools are available to the agent:
 
 ```shell
 .
+├── cmd
+│   └── agent
+│       └── main.go          # Entry point
 ├── go.mod
 ├── go.sum
-├── main.go
 └── pkg
     ├── agent
     │   └── agent.go
+    ├── app
+    │   └── bootstrap.go      # Config, wiring, Run()
+    ├── mcp
+    │   ├── adapter.go
+    │   ├── client.go
+    │   ├── client_test.go
+    │   ├── go_lsp.go
+    │   └── refactoring.go
     └── tool
-        ├── edit_file.go
-        ├── list_files.go
-        ├── read_file.go
-        └── types.go
+        ├── crypto_build.go
+        ├── ...               # All tool implementations
+        └── workdir.go
 ```
 
-* `main.go`: The entry point of the application.
-* `pkg/agent/agent.go`: Contains the core logic for the agent.
+* `cmd/agent/main.go`: The entry point of the application.
+* `pkg/app/bootstrap.go`: Configuration, flag parsing, provider resolution, and `Run()` wiring.
+* `pkg/agent/agent.go`: Contains the core agent loop and inference logic.
 * `pkg/tool/`: Contains the definitions for the available tools.
+* `pkg/mcp/`: MCP server integration for extended tooling (e.g., gopls).
 
 ## Acknowledgments
 

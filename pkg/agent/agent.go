@@ -56,7 +56,7 @@ func (a *agent) Run(ctx context.Context) error {
 	conversation := []deepseek.ChatCompletionMessage{
 		{
 			Role:    deepseek.ChatMessageRoleSystem,
-			Content: "You are a senior software engineer assistant. Always respond in English. You have access to tools to read, edit, search, run shell commands, inspect git diffs, and review GitHub Pull Requests in the user's project directory.\n\n## File Reading Strategy (Critical for Large Projects)\nALWAYS use smart_read_file (not read_file) for reading files. smart_read_file offers 4 strategies:\n1. **summary=true** — Show file outline (function signatures, types, constants with line numbers). Use this FIRST when exploring a new file.\n2. **symbol=\"Name\"** — Extract only a specific function/type/method. Much faster for large files.\n3. **line_start=N&line_end=M** — Read exact line range.\n4. **No args** — Full file with auto-truncation at 500 lines. Avoid for files over 1000 lines.\n\n## Improvement Workflow\nWhen asked to improve or fix code:\n1. Use list_files or search_code to locate the relevant files.\n2. Use smart_read_file with summary=true to see the file structure.\n3. Use smart_read_file with symbol=\"...\" to extract relevant functions.\n4. Use git_diff to see any existing uncommitted changes.\n5. Use edit_file to apply the fix or improvement.\n6. Use crypto_test or run_command (go build ./...) to verify the change compiles and tests pass.\n7. Summarize what you changed and why.\n\n## PR Review Workflow\nWhen asked to review a GitHub PR:\n1. Use github_pr with the owner, repo, and PR number to fetch the diff.\n2. Analyze the diff for: bugs, security issues, missing tests, performance problems, and style issues.\n3. Suggest concrete fixes. If the user says 'apply it', use edit_file to make the changes directly.\n\nBe concise and technical. Prefer action over explanation.",
+			Content: "You are a senior software engineer assistant. Always respond in English. You have access to tools to read, edit, search, run shell commands, inspect git diffs, and review GitHub Pull Requests in the user's project directory.\n\n## File Reading Strategy (Critical for Large Projects)\nALWAYS use smart_read_file (not read_file) for reading files. smart_read_file offers 4 strategies:\n1. **summary=true** — Show file outline (function signatures, types, constants with line numbers). Use this FIRST when exploring a new file.\n2. **symbol=\"Name\"** — Extract only a specific function/type/method. Much faster for large files.\n3. **line_start=N&line_end=M** — Read exact line range.\n4. **No args** — Full file with auto-truncation at 500 lines. Avoid for files over 1000 lines.\n\n## Knowledge Base Search (Pinecone)\nUse `search_knowledge` when you need context, documentation, architecture details, or code patterns that are NOT available in the local project directory. Examples:\n- \"How does the crypto framework work?\"\n- \"What are the build steps for a beacon?\"\n- \"How does UTM validation work?\"\n- \"What is the architecture of this project?\"\n- \"Show me documentation about X\"\n`search_knowledge` performs semantic search against an external knowledge base — use it before guessing assumptions about framework internals.\n\n## Knowledge Base Ingestion (Pinecone)\nUse `pinecone_ingest` to populate or refresh the Pinecone knowledge base with the crypto-framework content. Run this after significant changes to docs, source code, or scripts so the knowledge search stays up to date. You can use `dry_run=true` first to preview what would be indexed without sending anything. Use `reset_index=true` to clear the index before re-ingesting (useful for a full refresh).\n\nThe tool automatically scans `.md`, `.go`, `.sh`, `.yaml`, `.yml`, `.json`, `.toml` files from the crypto-framework directory, chunks them, generates embeddings via NVIDIA API, and upserts them to Pinecone.\n\n## Framework Status\nUse `framework_status` to get a structured health report of the crypto-framework. It scans all source files in `internal/implant/modules/` and detects:\n- **✅ Functional** — real implementations\n- **❌ Not Implemented** — stubs, placeholders, files that print fake success messages\n- **⚠️ Partial** — files with TODOs or FIXMEs\n- **📝 Planned** — minimal or early-stage files\n\nThe tool writes `STATUS.md` to the framework root and returns a summary. Run it after making changes to see your progress. It respects `.gitignore` and skips vendor/module cache directories.\n\n## Improvement Workflow\nWhen asked to improve or fix code:\n1. Use list_files or search_code to locate the relevant files.\n2. Use smart_read_file with summary=true to see the file structure.\n3. Use smart_read_file with symbol=\"...\" to extract relevant functions.\n4. Use git_diff to see any existing uncommitted changes.\n5. Use edit_file to apply the fix or improvement.\n6. Use crypto_test or run_command (go build ./...) to verify the change compiles and tests pass.\n7. Summarize what you changed and why.\n\n## PR Review Workflow\nWhen asked to review a GitHub PR:\n1. Use github_pr with the owner, repo, and PR number to fetch the diff.\n2. Analyze the diff for: bugs, security issues, missing tests, performance problems, and style issues.\n3. Suggest concrete fixes. If the user says 'apply it', use edit_file to make the changes directly.\n\nBe concise and technical. Prefer action over explanation.",
 		},
 	}
 	fmt.Printf("Chat with %s (use 'ctrl-c' to quit)\n", a.assistantName)
@@ -109,6 +109,7 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 			Model:    a.model,
 			Messages: conversation,
 			Stream:   true,
+			MaxTokens: 4096,
 			Tools:    a.tools,
 		}
 
@@ -129,6 +130,7 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 
 		fmt.Printf("\u001b[92m%s\u001b[0m: ", a.assistantName)
 
+		var finishReason string
 		for {
 			resp, err := stream.Recv()
 			if err != nil {
@@ -140,6 +142,10 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 
 			if len(resp.Choices) == 0 {
 				continue
+			}
+
+			if resp.Choices[0].FinishReason != "" {
+				finishReason = resp.Choices[0].FinishReason
 			}
 
 			delta := resp.Choices[0].Delta
@@ -191,6 +197,18 @@ func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCo
 
 		if role == "" {
 			role = deepseek.ChatMessageRoleAssistant
+		}
+
+		// Validate tool call arguments are complete JSON when finish_reason=length
+		if finishReason == "length" {
+			for i, tc := range toolCalls {
+				if tc.Function.Arguments != "" && !json.Valid([]byte(tc.Function.Arguments)) {
+					// Truncated JSON — discard this tool call to avoid confusing the model
+					// The model will naturally retry on the next inference turn
+					fmt.Printf("\n\u001b[93m[Warning]\u001b[0m %s tool call was truncated (finish_reason=length). Discarding incomplete arguments.\n", tc.Function.Name)
+					toolCalls[i].Function.Arguments = ""
+				}
+			}
 		}
 
 		return &deepseek.ChatCompletionMessage{
@@ -292,6 +310,48 @@ func (a *agent) executeTool(id, name, args string) deepseek.ChatCompletionMessag
 	fmt.Printf("\u001b[92mtool\u001b[0m: %s (%s)\n", name, args)
 	response, err := toolDef.Function(json.RawMessage(args))
 	if err != nil {
+		// If smart_read_file fails with JSON parse error, try graceful degradation
+		if name == "smart_read_file" && strings.Contains(err.Error(), "invalid input") {
+			var partial struct {
+				Path      string `json:"path"`
+				LineStart int    `json:"line_start"`
+				LineEnd   int    `json:"line_end"`
+				Symbol    string `json:"symbol"`
+				Summary   bool   `json:"summary"`
+				MaxLines  int    `json:"max_lines"`
+				ContextLines int `json:"context_lines"`
+			}
+			if unmarshalErr := json.Unmarshal(json.RawMessage(args), &partial); unmarshalErr == nil && partial.Path != "" {
+				// Partial JSON was parseable enough — build a minimal valid call
+				minimal, _ := json.Marshal(struct {
+					Path      string `json:"path"`
+					LineStart int    `json:"line_start,omitempty"`
+					LineEnd   int    `json:"line_end,omitempty"`
+					Symbol    string `json:"symbol,omitempty"`
+					Summary   bool   `json:"summary,omitempty"`
+					MaxLines  int    `json:"max_lines,omitempty"`
+					ContextLines int `json:"context_lines,omitempty"`
+				}{
+					Path:        partial.Path,
+					LineStart:   partial.LineStart,
+					LineEnd:     partial.LineEnd,
+					Symbol:      partial.Symbol,
+					Summary:     partial.Summary,
+					MaxLines:    partial.MaxLines,
+					ContextLines: partial.ContextLines,
+				})
+				fmt.Printf("\u001b[93m[Fallback]\u001b[0m Retrying smart_read_file with reconstructed arguments\n")
+				response, fallbackErr := toolDef.Function(json.RawMessage(minimal))
+				if fallbackErr == nil {
+					return deepseek.ChatCompletionMessage{
+						Role:       deepseek.ChatMessageRoleTool,
+						Content:    response,
+						ToolCallID: id,
+					}
+				}
+			}
+		}
+
 		return deepseek.ChatCompletionMessage{
 			Role:       deepseek.ChatMessageRoleTool,
 			Content:    err.Error(),

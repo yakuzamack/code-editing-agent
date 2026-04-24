@@ -28,9 +28,8 @@ type SearchKnowledgeInput struct {
 
 // pineconeQueryRequest is the Pinecone query API request body.
 type pineconeQueryRequest struct {
-	TopK          int                `json:"topK"`
-	Inputs        map[string]string  `json:"inputs,omitempty"`
-	Query         string             `json:"query"`
+	TopK          int                    `json:"topK"`
+	Query         string                 `json:"query"`
 	Filter        map[string]interface{} `json:"filter,omitempty"`
 }
 

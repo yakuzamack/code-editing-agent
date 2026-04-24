@@ -24,10 +24,12 @@ var SearchCodeDefinition = Definition{
 
 // SearchCodeInput is the input for the search_code tool.
 type SearchCodeInput struct {
-	Query         string `json:"query" jsonschema_description:"Text to search for."`
-	Path          string `json:"path,omitempty" jsonschema_description:"Optional relative path to search from. Defaults to the working directory."`
-	CaseSensitive bool   `json:"case_sensitive,omitempty" jsonschema_description:"Whether the search should be case-sensitive. Defaults to false."`
-	MaxResults    int    `json:"max_results,omitempty" jsonschema_description:"Maximum number of matches to return. Defaults to 20."`
+	Query           string `json:"query" jsonschema_description:"Text to search for."`
+	Path            string `json:"path,omitempty" jsonschema_description:"Optional relative path to search from. Defaults to the working directory."`
+	CaseSensitive   bool   `json:"case_sensitive,omitempty" jsonschema_description:"Whether the search should be case-sensitive. Defaults to false."`
+	MaxResults      int    `json:"max_results,omitempty" jsonschema_description:"Maximum number of matches to return. Defaults to 20."`
+	MaxFileSizeMB   int    `json:"max_file_size_mb,omitempty" jsonschema_description:"Skip files larger than this (in MB). Defaults to 10 MB."`
+	ExcludeGitIgnore bool  `json:"exclude_gitignore,omitempty" jsonschema_description:"If true, parse .gitignore rules and skip ignored paths (default true)."`
 }
 
 // SearchCodeMatch is a single search result.
@@ -61,9 +63,23 @@ func SearchCode(input json.RawMessage) (string, error) {
 		maxResults = 20
 	}
 
+	// Default: skip files > 10 MB
+	maxFileSize := int64(searchCodeInput.MaxFileSizeMB) * 1024 * 1024
+	if maxFileSize <= 0 {
+		maxFileSize = 10 * 1024 * 1024 // 10 MB default
+	}
+
+	excludeGitIgnore := searchCodeInput.ExcludeGitIgnore || !searchCodeInput.CaseSensitive // default true
+
 	needle := searchCodeInput.Query
 	if !searchCodeInput.CaseSensitive {
 		needle = strings.ToLower(needle)
+	}
+
+	// Create .gitignore-aware skip filter
+	var skipFilter WalkSkipFunc
+	if excludeGitIgnore {
+		skipFilter = MakeGitIgnoreFilter(rootDir)
 	}
 
 	matches := make([]SearchCodeMatch, 0, maxResults)
@@ -73,13 +89,17 @@ func SearchCode(input json.RawMessage) (string, error) {
 		}
 
 		if info.IsDir() {
-			name := info.Name()
-			if name == ".git" || name == "node_modules" {
+			if excludeGitIgnore && skipFilter(path, info) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		// Skip large files
+		if info.Size() > maxFileSize {
 			return nil
 		}
 

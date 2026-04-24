@@ -27,12 +27,12 @@ go.work.sum
 # env file
 .env
 
-# Built binaries
-agent
-code-editing-agent
-copilot-agent
-utm_validate
-utm_validate_cmd
+# Built binaries (root-only patterns)
+/agent
+/code-editing-agent
+/copilot-agent
+/utm_validate
+/utm_validate_cmd
 
 # Editor/IDE
 # .idea/

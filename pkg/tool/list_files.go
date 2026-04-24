@@ -44,6 +44,8 @@ func ListFiles(input json.RawMessage) (string, error) {
 		maxResults = 200
 	}
 
+	skipFilter := MakeGitIgnoreFilter(dir)
+
 	var files []string
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -51,8 +53,7 @@ func ListFiles(input json.RawMessage) (string, error) {
 		}
 
 		if info.IsDir() {
-			name := info.Name()
-			if path != dir && (name == ".git" || name == "node_modules") {
+			if skipFilter(path, info) {
 				return filepath.SkipDir
 			}
 		}
