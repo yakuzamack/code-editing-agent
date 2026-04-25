@@ -483,7 +483,7 @@ func generateStatusReport(fwDir string, components []componentStatus) string {
 
 	for _, module := range moduleNames {
 		comps := byModule[module]
-			fmt.Fprintf(&sb, "### %s\n\n", module)
+		fmt.Fprintf(&sb, "### %s\n\n", module)
 		sb.WriteString("| Component | Status | Issue | Lines | Tests |\n")
 		sb.WriteString("|-----------|--------|-------|-------|-------|\n")
 
@@ -498,7 +498,7 @@ func generateStatusReport(fwDir string, components []componentStatus) string {
 			if issue == "" {
 				issue = "—"
 			}
-				fmt.Fprintf(&sb, "| %s %s | %s | %s | %d | %s |\n",
+			fmt.Fprintf(&sb, "| %s %s | %s | %s | %d | %s |\n",
 				c.StatusEmoji, c.Name, c.Status, issue, c.SourceLines, testMark)
 		}
 		sb.WriteString("\n")

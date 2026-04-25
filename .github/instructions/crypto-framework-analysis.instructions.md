@@ -167,13 +167,13 @@ User: "What's the status of crypto module implementation?"
 Agent:
   1. fast_framework_scan --target_dir=internal/implant/modules/crypto
      Result: Directory structure, file counts, estimated LOC
-  
+
   2. framework_status --regenerate
      Result: Module-by-module implementation status
-  
+
   3. search_code "TODO.*crypto" | search_code "FIXME.*extraction"
      Result: Specific outstanding work items
-  
+
   Total: ~8,000 tokens, <10 seconds, clear answer ✅
 ```
 

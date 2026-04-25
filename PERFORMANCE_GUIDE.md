@@ -3,24 +3,29 @@
 ## ⚡ Quick Start: Avoid Context Bloat
 
 ### ❌ DON'T Do This (Slow — 50+ seconds)
+
 ```
 1. read_file for file 1
 2. read_file for file 2
 3. read_file for file 3
 ... (sequential, each adds context)
 ```
+
 **Result**: Token count explodes → requests slow down → hitting rate limits
 
 ### ✅ DO This Instead (Fast — 5-10 seconds)
 
 #### Option A: Use `fast_framework_scan` First
+
 ```bash
 # Quickly understand structure WITHOUT reading large files
 fast_framework_scan --include_todos=true
 ```
+
 Then read only the specific files you need.
 
 #### Option B: Use `batch_read` for Multiple Files
+
 ```bash
 # Read 5-10 files in parallel instead of sequentially
 batch_read --files=[
@@ -29,13 +34,16 @@ batch_read --files=[
   "pkg/shared/protocol/protocol.go"
 ]
 ```
+
 **Benefit**: Parallel reads, single context injection, clean formatting
 
 #### Option C: Use Subagents for Exploration
+
 ```bash
 # Offload complex analysis to subagent
 runSubagent("Explore", "Analyze crypto-framework module structure and find stubs")
 ```
+
 **Benefit**: Subagent runs independently, you get condensed summary, context stays manageable
 
 ---
@@ -43,7 +51,9 @@ runSubagent("Explore", "Analyze crypto-framework module structure and find stubs
 ## 🎯 Best Practices by Task
 
 ### Task: Understand Framework Architecture
+
 **Bad Approach:**
+
 1. Read README
 2. Read main.go
 3. Read cmd/server/main.go
@@ -51,6 +61,7 @@ runSubagent("Explore", "Analyze crypto-framework module structure and find stubs
 5. List all modules...
 
 **Good Approach:**
+
 ```bash
 # 1. Fast scan
 fast_framework_scan --include_todos
@@ -61,18 +72,22 @@ framework_status
 # 3. Read only critical entry points
 batch_read --files=["cmd/server/main.go", "cmd/cli/main.go"]
 ```
+
 **Time**: 5 seconds vs. 30+ seconds
 
 ---
 
 ### Task: Identify Missing Implementation
+
 **Bad Approach:**
+
 ```bash
 read_file for each module...
 read_file for each submodule...
 ```
 
 **Good Approach:**
+
 ```bash
 # 1. Quick structural scan
 fast_framework_scan --include_todos
@@ -87,13 +102,16 @@ search_knowledge "stub implementations missing"
 ---
 
 ### Task: Add New Feature/Module
+
 **Bad Approach:**
+
 ```bash
 Read all existing modules to understand patterns...
 Read multiple examples...
 ```
 
 **Good Approach:**
+
 ```bash
 # 1. Examine one clean example module
 batch_read --files=[
@@ -113,12 +131,15 @@ search_knowledge "module interface implementation pattern"
 ## 📊 Token & Rate Limit Prevention
 
 ### Monitor Your Request Size
+
 - **Good**: 10,000-15,000 tokens per request
 - **Warning**: 20,000-25,000 tokens (getting expensive)
 - **Critical**: 30,000+ tokens (hitting limits soon!)
 
 ### Token-Saving Strategies
+
 1. **Use search instead of read**
+
    ```bash
    # Instead of: read_file("pkg/agent/agent.go")
    # Use:
@@ -126,6 +147,7 @@ search_knowledge "module interface implementation pattern"
    ```
 
 2. **Batch related operations**
+
    ```bash
    # One call for multiple files
    batch_read --files=[f1, f2, f3]
@@ -140,6 +162,7 @@ search_knowledge "module interface implementation pattern"
    - `search_knowledge` → find patterns/docs
 
 4. **Use subagents for deep exploration**
+
    ```bash
    # Instead of running 10 read_file calls in main agent:
    # Offload to subagent for a condensed response
@@ -165,6 +188,7 @@ search_knowledge "module interface implementation pattern"
 ## ⚠️ Anti-Patterns (Performance Killers)
 
 ### 1. Sequential File Reads Loop
+
 ```go
 ❌ for each file in directory:
      read_file(file)
@@ -175,6 +199,7 @@ search_knowledge "module interface implementation pattern"
 **Fix**: Use `batch_read` or `search_code` instead
 
 ### 2. Reading Entire Large Files
+
 ```go
 ❌ read_file("internal/implant/core/implant.go")  // 5000+ lines
 ```
@@ -182,6 +207,7 @@ search_knowledge "module interface implementation pattern"
 **Fix**: Use `search_code` to find specific functions, or `smart_read_file` for summaries
 
 ### 3. Building Context by Hand
+
 ```go
 ❌ // Agent reads 20 files to understand crypto extraction
    // Context bloats to 40,000+ tokens
@@ -190,6 +216,7 @@ search_knowledge "module interface implementation pattern"
 **Fix**: Use `framework_status` or subagent exploration instead
 
 ### 4. No Summarization Between Phases
+
 ```go
 ❌ Phase 1: Explore architecture (15KB context added)
    Phase 2: Analyze modules (15KB more added)
@@ -218,6 +245,7 @@ Before asking the agent a complex question:
 ## Example: Good vs Bad Analysis Session
 
 ### ❌ Bad Session (50+ seconds, hits limits)
+
 ```
 User: Analyze crypto-framework
 Agent:
@@ -233,20 +261,21 @@ Final: 40,000+ tokens, request #4 takes 50+ seconds ⚠️
 ```
 
 ### ✅ Good Session (10-15 seconds, efficient)
+
 ```
 User: Analyze crypto-framework
 Agent:
   1. fast_framework_scan --include_todos  → +1500 tokens, instant scan
   2. framework_status                     → +2000 tokens, comprehensive overview
   3. search_code "type.*Module interface" → +800 tokens, find patterns
-  
+
   (Summarizes findings...)
-  
+
   Follow-up: Deep dive into specific module
   Agent:
     1. batch_read --files=[module1, module2] → +3000 tokens, parallel
     2. search_knowledge "similar modules"     → +1200 tokens
-    
+
 Final: ~8,500 tokens total, all requests <10 seconds ✅
 ```
 
@@ -255,6 +284,7 @@ Final: ~8,500 tokens total, all requests <10 seconds ✅
 ## Summary
 
 **Key Wins**:
+
 - ✅ `fast_framework_scan` for instant structure overview (no large file reads)
 - ✅ `batch_read` for multiple files (parallel instead of sequential)
 - ✅ `search_code`/`search_knowledge` before `read_file` (targeted vs. full)

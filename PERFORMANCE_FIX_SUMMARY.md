@@ -3,6 +3,7 @@
 ## 🎯 Problems Fixed
 
 Your debug log showed critical performance issues:
+
 - **Request #4**: 49.6 seconds (way too slow)
 - **Context bloat**: 28,007 tokens by last request
 - **Token explosion**: Sequential file reads without summarization
@@ -12,12 +13,14 @@ Your debug log showed critical performance issues:
 
 ## ✅ Solutions Implemented
 
-### 1. **New Tool: `batch_read`** 
+### 1. **New Tool: `batch_read`**
+
 **File**: `pkg/tool/batch_read.go`
 
 Reads multiple files in parallel instead of sequentially.
 
 **Before** (Slow - 50+ seconds):
+
 ```bash
 read_file file1.go  # +2000 tokens
 read_file file2.go  # +3000 tokens
@@ -26,6 +29,7 @@ read_file file3.go  # +2500 tokens
 ```
 
 **After** (Fast - 5 seconds):
+
 ```bash
 batch_read --files=["file1.go", "file2.go", "file3.go"]
 # Total: 7500 tokens, 5 seconds (same data, 6x faster!)
@@ -34,6 +38,7 @@ batch_read --files=["file1.go", "file2.go", "file3.go"]
 ---
 
 ### 2. **New Tool: `fast_framework_scan`**
+
 **File**: `pkg/tool/fast_framework_scan.go`
 
 Scans framework structure WITHOUT reading large files.
@@ -43,7 +48,9 @@ Scans framework structure WITHOUT reading large files.
 ```bash
 fast_framework_scan --include_todos
 ```
+
 Returns:
+
 - Directory tree with file counts
 - Estimated lines of code
 - All TODO/FIXME comments
@@ -54,9 +61,11 @@ Returns:
 ---
 
 ### 3. **Agent Instructions**
+
 **File**: `.github/instructions/crypto-framework-analysis.instructions.md`
 
 New instructions guide the agent to:
+
 - ✅ Use `fast_framework_scan` first
 - ✅ Use `batch_read` for multiple files
 - ✅ Search before reading
@@ -66,9 +75,11 @@ New instructions guide the agent to:
 ---
 
 ### 4. **Performance Guide**
+
 **File**: `PERFORMANCE_GUIDE.md`
 
 Complete guide with:
+
 - Quick start examples (good vs. bad patterns)
 - Best practices by task type
 - Token/rate limit prevention strategies
@@ -79,9 +90,11 @@ Complete guide with:
 ---
 
 ### 5. **Updated Tool Registry**
+
 **File**: `pkg/tool/types.go`
 
 Both new tools registered and available to the agent:
+
 - `BatchReadDefinition`
 - `FastFrameworkScanDefinition`
 
@@ -89,9 +102,10 @@ Both new tools registered and available to the agent:
 
 ## 🚀 Quick Start
 
-### For Current/Future Analysis Sessions:
+### For Current/Future Analysis Sessions
 
 **OLD WAY** (Slow - 50+ seconds):
+
 ```
 User: "Analyze crypto-framework"
 Agent:
@@ -104,6 +118,7 @@ Agent:
 ```
 
 **NEW WAY** (Fast - 10 seconds):
+
 ```
 User: "Analyze crypto-framework"
 Agent:
@@ -132,13 +147,16 @@ Agent:
 ## 📖 How to Use
 
 ### 1. **For Framework Discovery**
+
 ```bash
 # Instead of reading multiple files:
 fast_framework_scan --target_dir="crypto-framework" --include_todos
 ```
+
 Instant overview without reading large files.
 
 ### 2. **For Reading Multiple Files**
+
 ```bash
 # Instead of 3 sequential read_file calls:
 batch_read --files=[
@@ -147,9 +165,11 @@ batch_read --files=[
   "pkg/shared/protocol/protocol.go"
 ]
 ```
+
 Parallel reads, single context injection.
 
 ### 3. **For Complex Analysis**
+
 ```bash
 # Instead of conducting 15+ reads in main conversation:
 runSubagent("Explore", "Analyze module structure and identify patterns")
@@ -157,6 +177,7 @@ runSubagent("Explore", "Analyze module structure and identify patterns")
 ```
 
 ### 4. **Recommended Workflow**
+
 ```
 1. fast_framework_scan          # 2 seconds, instant overview
 2. framework_status             # 5 seconds, module status
@@ -172,6 +193,7 @@ Total: ~20 seconds, 12,000-15,000 tokens ✅
 ## 🔧 Configuration
 
 No configuration needed! The tools are:
+
 - ✅ Automatically registered
 - ✅ Available to the agent immediately
 - ✅ Documented in the new instructions file
@@ -181,12 +203,15 @@ No configuration needed! The tools are:
 
 ## 📚 Documentation
 
-### For You:
+### For You
+
 - **PERFORMANCE_GUIDE.md** — Comprehensive performance strategies
 - **.github/instructions/crypto-framework-analysis.instructions.md** — Agent behavior guidelines
 
-### For the Agent:
+### For the Agent
+
 The instructions file automatically guides the agent to:
+
 1. Use fast scanning tools first
 2. Batch operations when possible
 3. Prefer search over read
@@ -198,6 +223,7 @@ The instructions file automatically guides the agent to:
 ## ✨ Key Takeaways
 
 **Three Simple Rules**:
+
 1. **Fast scan first** → `fast_framework_scan` before reading files
 2. **Batch multiple reads** → `batch_read` instead of sequential `read_file`
 3. **Offload exploration** → `runSubagent("Explore", "...")` for complex analysis
@@ -220,12 +246,14 @@ The instructions file automatically guides the agent to:
 ## Next Steps
 
 1. **Rebuild the agent** (if not already done):
+
    ```bash
    cd /Users/home/Projects/code-editing-agent
    go build ./cmd/agent
    ```
 
 2. **Read the performance guide** (5 minutes):
+
    ```bash
    cat PERFORMANCE_GUIDE.md
    ```

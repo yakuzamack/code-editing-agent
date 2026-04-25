@@ -50,7 +50,7 @@ func ExecuteFastFrameworkScan(input json.RawMessage) (string, error) {
 	stats := make(map[string]*dirStats)
 	var totalGo, totalTest, totalOther, totalLOC int
 
-	filepath.Walk(targetDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(targetDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -84,14 +84,17 @@ func ExecuteFastFrameworkScan(input json.RawMessage) (string, error) {
 		}
 
 		// Extract TODOs if requested (scan first 500 lines)
-		if args.IncludeTODOs && (strings.HasSuffix(info.Name(), ".go") || 
-			strings.HasSuffix(info.Name(), ".sh") || 
+		if args.IncludeTODOs && (strings.HasSuffix(info.Name(), ".go") ||
+			strings.HasSuffix(info.Name(), ".sh") ||
 			strings.HasSuffix(info.Name(), ".md")) {
 			extractTODOs(path, relPath, stats[pkgDir])
 		}
 
 		return nil
 	})
+	if err != nil {
+		return "", fmt.Errorf("error scanning directory: %w", err)
+	}
 
 	// Format output
 	var output strings.Builder

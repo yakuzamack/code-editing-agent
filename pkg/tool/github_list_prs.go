@@ -249,10 +249,10 @@ func parseLinkTotalCount(linkHeader string) int {
 				for _, param := range strings.Split(url, "&") {
 					if strings.HasPrefix(param, "page=") {
 						var page int
-					if _, err := fmt.Sscanf(param, "page=%d", &page); err != nil {
-						// Invalid page format, continue
+						if _, err := fmt.Sscanf(param, "page=%d", &page); err != nil {
+							// Invalid page format, continue
 							_ = err
-					}
+						}
 						// GitHub returns 1 page of up to 100 files
 						// So total = last_page * 100 (per_page=100 by default, we use 1)
 						// Actually we set per_page=1, so total = page * 1

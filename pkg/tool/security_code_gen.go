@@ -272,16 +272,16 @@ import (
 
 // ElectrumWallet represents an Electrum wallet structure.
 type ElectrumWallet struct {
-	Seed     ElectrumSeed ` + "`json:\"seed\"`" + `
-	Version  string       ` + "`json:\"wallet_type\"`" + `
-	UseEncryption bool    ` + "`json:\"use_encryption\"`" + `
+	Seed     ElectrumSeed `+"`json:\"seed\"`"+`
+	Version  string       `+"`json:\"wallet_type\"`"+`
+	UseEncryption bool    `+"`json:\"use_encryption\"`"+`
 }
 
 // ElectrumSeed contains the encrypted seed data.
 type ElectrumSeed struct {
-	IV         string ` + "`json:\"iv\"`" + `
-	CipherText string ` + "`json:\"ciphertext\"`" + `
-	Salt       string ` + "`json:\"salt\"`" + `
+	IV         string `+"`json:\"iv\"`"+`
+	CipherText string `+"`json:\"ciphertext\"`"+`
+	Salt       string `+"`json:\"salt\"`"+`
 }
 
 // bruteforceElectrum performs PBKDF2-HMAC-SHA512 bruteforce against Electrum wallet.
@@ -598,6 +598,7 @@ func generateMachInjectTestTemplate(platform string) string {
 
 // loadWordlist loads a wordlist file into memory.
 // This function is reserved for future security implementations.
+//
 //nolint:unused // Used in generated security code templates
 func loadWordlist(filepath string) ([]string, error) {
 	data, err := os.ReadFile(filepath)
@@ -619,6 +620,7 @@ func loadWordlist(filepath string) ([]string, error) {
 
 // maskSensitiveContent partially masks sensitive data for logging.
 // This function is reserved for future security implementations.
+//
 //nolint:unused // Used in generated security code templates
 func maskSensitiveContent(s string) string {
 	if len(s) <= 4 {
