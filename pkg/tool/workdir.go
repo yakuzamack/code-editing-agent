@@ -108,7 +108,12 @@ func loadGitIgnore(dir string) *gitIgnoreMatcher {
 	if err != nil {
 		return &gitIgnoreMatcher{} // no .gitignore
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	var m gitIgnoreMatcher
 	scanner := bufio.NewScanner(f)
@@ -210,18 +215,6 @@ func globMatch(name, pattern string) bool {
 	return pi == len(pattern)
 }
 
-// skipDir returns true if a directory should be skipped during file walking.
-// It checks .gitignore and common noise directories.
-func skipDir(dirName, relPath string) bool {
-	if dirName == ".git" || dirName == "node_modules" {
-		return true
-	}
-	// Check .gitignore of the parent directory
-	parent := filepath.Dir(relPath)
-	gm := loadGitIgnore(filepath.Join(workingDir, parent))
-	return gm.isIgnored(filepath.ToSlash(filepath.Join(relPath, dirName)), true)
-}
-
 // gitIgnoreFilter returns a WalkSkipFunc that respects .gitignore patterns.
 // walkDir is the absolute root directory being walked; skipFunc returns true
 // for directories that should not be entered.
@@ -232,8 +225,7 @@ type WalkSkipFunc func(absPath string, info os.FileInfo) bool
 func MakeGitIgnoreFilter(walkRoot string) WalkSkipFunc {
 	cache := make(map[string]*gitIgnoreMatcher)
 
-	var fn WalkSkipFunc
-	fn = func(absPath string, info os.FileInfo) bool {
+	fn := func(absPath string, info os.FileInfo) bool {
 		if !info.IsDir() {
 			return false
 		}

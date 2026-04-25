@@ -28,9 +28,9 @@ type SearchKnowledgeInput struct {
 
 // pineconeQueryRequest is the Pinecone query API request body.
 type pineconeQueryRequest struct {
-	TopK          int                    `json:"topK"`
-	Query         string                 `json:"query"`
-	Filter        map[string]interface{} `json:"filter,omitempty"`
+	TopK   int                    `json:"topK"`
+	Query  string                 `json:"query"`
+	Filter map[string]interface{} `json:"filter,omitempty"`
 }
 
 // pineconeQueryResponse is the Pinecone query API response body.
@@ -40,8 +40,8 @@ type pineconeQueryResponse struct {
 }
 
 type pineconeMatch struct {
-	ID           string            `json:"id"`
-	Score        float64           `json:"score"`
+	ID           string                 `json:"id"`
+	Score        float64                `json:"score"`
 	Metadata     map[string]interface{} `json:"metadata"`
 	SparseValues map[string]interface{} `json:"sparseValues,omitempty"`
 }
@@ -99,7 +99,12 @@ func ExecuteSearchKnowledge(input json.RawMessage) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to query Pinecone: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

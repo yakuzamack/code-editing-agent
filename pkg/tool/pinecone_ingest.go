@@ -41,8 +41,8 @@ type PineconeIngestInput struct {
 
 // embeddingRequest is the request body for NVIDIA embedding API.
 type embeddingRequest struct {
-	Input  string `json:"input"`
-	Model  string `json:"model"`
+	Input     string `json:"input"`
+	Model     string `json:"model"`
 	InputType string `json:"input_type,omitempty"`
 }
 
@@ -61,8 +61,8 @@ type embeddingResponse struct {
 
 // pineconeUpsertRequest is the Pinecone upsert API request body.
 type pineconeUpsertRequest struct {
-	Vectors []pineconeVector `json:"vectors"`
-	Namespace string         `json:"namespace,omitempty"`
+	Vectors   []pineconeVector `json:"vectors"`
+	Namespace string           `json:"namespace,omitempty"`
 }
 
 type pineconeVector struct {
@@ -79,11 +79,11 @@ type pineconeDeleteRequest struct {
 
 // chunkInfo holds a chunk of text with its source metadata.
 type chunkInfo struct {
-	ID       string
-	Text     string
-	FilePath string
-	FileType string
-	ChunkNum int
+	ID          string
+	Text        string
+	FilePath    string
+	FileType    string
+	ChunkNum    int
 	TotalChunks int
 }
 
@@ -255,12 +255,12 @@ func ExecutePineconeIngest(input json.RawMessage) (string, error) {
 			// Create a deterministic ID based on file path and chunk number
 			id := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%d", rel, i))))
 			allChunks = append(allChunks, chunkInfo{
-				ID:           id[:32], // use first 32 hex chars
-				Text:         chunk,
-				FilePath:     rel,
-				FileType:     ext,
-				ChunkNum:     i + 1,
-				TotalChunks:  len(chunks),
+				ID:          id[:32], // use first 32 hex chars
+				Text:        chunk,
+				FilePath:    rel,
+				FileType:    ext,
+				ChunkNum:    i + 1,
+				TotalChunks: len(chunks),
 			})
 		}
 		fmt.Fprintf(&sb, "  ✅ `%s` → **%d** chunks\n", rel, len(chunks))
@@ -384,7 +384,12 @@ func generateEmbedding(client *http.Client, url, apiKey, model, text string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("embedding request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -432,11 +437,16 @@ func pineconeUpsert(client *http.Client, apiKey, indexHost string, vectors []pin
 	if err != nil {
 		return fmt.Errorf("upsert request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Pinecone upsert error (HTTP %d): %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("pinecone upsert error (HTTP %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	return nil
@@ -469,11 +479,16 @@ func pineconeDeleteAll(apiKey, indexHost string) error {
 	if err != nil {
 		return fmt.Errorf("delete request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Pinecone delete error (HTTP %d): %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("pinecone delete error (HTTP %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	return nil

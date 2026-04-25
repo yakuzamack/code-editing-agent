@@ -20,12 +20,12 @@ func RefactoringDefinitions(mcpClient *Client) []tool.Definition {
 
 // SafeEditInput is the input for the safe_edit tool.
 type SafeEditInput struct {
-	Description string            `json:"description" jsonschema:"description=Human-readable description of what this edit does"`
-	FilePath    string            `json:"file_path" jsonschema:"description=Primary file to edit"`
-	StartLine   int               `json:"start_line" jsonschema:"description=Starting line of the region (0-indexed, inclusive)"`
-	EndLine     int               `json:"end_line" jsonschema:"description=Ending line of the region (0-indexed, inclusive)"`
-	Replacement string            `json:"replacement" jsonschema:"description=New code to replace the selection with"`
-	DryRun      bool              `json:"dry_run" jsonschema:"description=If true, show affected files without applying changes"`
+	Description string `json:"description" jsonschema:"description=Human-readable description of what this edit does"`
+	FilePath    string `json:"file_path" jsonschema:"description=Primary file to edit"`
+	StartLine   int    `json:"start_line" jsonschema:"description=Starting line of the region (0-indexed, inclusive)"`
+	EndLine     int    `json:"end_line" jsonschema:"description=Ending line of the region (0-indexed, inclusive)"`
+	Replacement string `json:"replacement" jsonschema:"description=New code to replace the selection with"`
+	DryRun      bool   `json:"dry_run" jsonschema:"description=If true, show affected files without applying changes"`
 }
 
 func createSafeEditTool(mcpClient *Client) tool.Definition {
@@ -58,9 +58,9 @@ func createSafeEditTool(mcpClient *Client) tool.Definition {
 
 // ExtractFunctionInput is the input for the extract_function tool.
 type ExtractFunctionInput struct {
-	FilePath    string `json:"file_path" jsonschema:"description=Path to the Go file"`
-	StartLine   int    `json:"start_line" jsonschema:"description=Starting line of code to extract (0-indexed)"`
-	EndLine     int    `json:"end_line" jsonschema:"description=Ending line of code to extract (0-indexed)"`
+	FilePath     string `json:"file_path" jsonschema:"description=Path to the Go file"`
+	StartLine    int    `json:"start_line" jsonschema:"description=Starting line of code to extract (0-indexed)"`
+	EndLine      int    `json:"end_line" jsonschema:"description=Ending line of code to extract (0-indexed)"`
 	FunctionName string `json:"function_name" jsonschema:"description=Name for the new function"`
 }
 
@@ -79,10 +79,10 @@ func createExtractFunctionTool(mcpClient *Client) tool.Definition {
 			defer cancel()
 
 			callArgs := map[string]interface{}{
-				"file_path":      args.FilePath,
-				"start_line":     args.StartLine,
-				"end_line":       args.EndLine,
-				"function_name":  args.FunctionName,
+				"file_path":     args.FilePath,
+				"start_line":    args.StartLine,
+				"end_line":      args.EndLine,
+				"function_name": args.FunctionName,
 			}
 
 			return mcpClient.CallTool(ctx, "go-lsp", "extract_function", callArgs)

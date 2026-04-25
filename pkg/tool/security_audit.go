@@ -6,6 +6,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -44,75 +46,75 @@ Generates actionable security report with fix recommendations.`,
 type SecurityAuditInput struct {
 	// AuditType specifies what to audit (opsec, crypto, memory, network, all).
 	AuditType string `json:"audit_type,omitempty" jsonschema:"description=Audit type: opsec, crypto, memory, network, secrets, all. Default: opsec."`
-	
+
 	// TargetModules limits audit to specific modules (e.g., ["crypto", "transport"]).
 	TargetModules []string `json:"target_modules,omitempty" jsonschema:"description=Specific modules to audit. Empty = all modules."`
-	
+
 	// Severity filters findings by severity (critical, high, medium, low, info).
 	Severity string `json:"severity,omitempty" jsonschema:"description=Minimum severity to report: critical, high, medium, low, info. Default: medium."`
-	
+
 	// OutputFormat controls output format (markdown, json, sarif).
 	OutputFormat string `json:"output_format,omitempty" jsonschema:"description=Output format: markdown, json, sarif. Default: markdown."`
-	
+
 	// IncludeSuppressions shows suppressed findings with justification.
 	IncludeSuppressions bool `json:"include_suppressions,omitempty" jsonschema:"description=Include suppressed findings in output."`
-	
+
 	// FrameworkRoot overrides auto-detection of crypto-framework directory.
 	FrameworkRoot string `json:"framework_root,omitempty" jsonschema:"description=Override crypto-framework root directory. Defaults to LLM_WORKDIR env."`
-	
+
 	// FixRecommendations includes specific fix suggestions for each finding.
 	FixRecommendations bool `json:"fix_recommendations,omitempty" jsonschema:"description=Include specific fix recommendations for findings."`
 }
 
 // SecurityFinding represents a security issue found during audit.
 type SecurityFinding struct {
-	ID           string            `json:"id"`
-	Type         string            `json:"type"`         // opsec, crypto, memory, etc.
-	Severity     string            `json:"severity"`     // critical, high, medium, low, info
-	Title        string            `json:"title"`
-	Description  string            `json:"description"`
-	File         string            `json:"file"`
-	Line         int               `json:"line"`
-	Column       int               `json:"column"`
-	Code         string            `json:"code"`         // Code snippet
-	Rule         string            `json:"rule"`         // Rule that triggered
-	CWE          string            `json:"cwe,omitempty"` // Common Weakness Enumeration
-	Fix          string            `json:"fix,omitempty"` // Suggested fix
-	Suppressed   bool              `json:"suppressed"`
-	Metadata     map[string]string `json:"metadata"`
+	ID          string            `json:"id"`
+	Type        string            `json:"type"`     // opsec, crypto, memory, etc.
+	Severity    string            `json:"severity"` // critical, high, medium, low, info
+	Title       string            `json:"title"`
+	Description string            `json:"description"`
+	File        string            `json:"file"`
+	Line        int               `json:"line"`
+	Column      int               `json:"column"`
+	Code        string            `json:"code"`          // Code snippet
+	Rule        string            `json:"rule"`          // Rule that triggered
+	CWE         string            `json:"cwe,omitempty"` // Common Weakness Enumeration
+	Fix         string            `json:"fix,omitempty"` // Suggested fix
+	Suppressed  bool              `json:"suppressed"`
+	Metadata    map[string]string `json:"metadata"`
 }
 
 // SecurityAuditResult contains the complete security audit results.
 type SecurityAuditResult struct {
-	Summary     AuditSummary       `json:"summary"`
-	Findings    []SecurityFinding  `json:"findings"`
+	Summary     AuditSummary          `json:"summary"`
+	Findings    []SecurityFinding     `json:"findings"`
 	ModuleStats []ModuleSecurityStats `json:"module_stats"`
-	Rules       []SecurityRule     `json:"rules"`
-	Timestamp   string             `json:"timestamp"`
+	Rules       []SecurityRule        `json:"rules"`
+	Timestamp   string                `json:"timestamp"`
 }
 
 // AuditSummary provides high-level audit statistics.
 type AuditSummary struct {
-	TotalFiles     int `json:"total_files"`
-	TotalLines     int `json:"total_lines"`
-	TotalFindings  int `json:"total_findings"`
-	Critical       int `json:"critical"`
-	High           int `json:"high"`
-	Medium         int `json:"medium"`
-	Low            int `json:"low"`
-	Info           int `json:"info"`
-	Suppressed     int `json:"suppressed"`
-	CleanModules   int `json:"clean_modules"`
+	TotalFiles    int `json:"total_files"`
+	TotalLines    int `json:"total_lines"`
+	TotalFindings int `json:"total_findings"`
+	Critical      int `json:"critical"`
+	High          int `json:"high"`
+	Medium        int `json:"medium"`
+	Low           int `json:"low"`
+	Info          int `json:"info"`
+	Suppressed    int `json:"suppressed"`
+	CleanModules  int `json:"clean_modules"`
 }
 
 // ModuleSecurityStats contains per-module security statistics.
 type ModuleSecurityStats struct {
-	Module   string `json:"module"`
-	Files    int    `json:"files"`
-	Lines    int    `json:"lines"`
-	Findings int    `json:"findings"`
-	MaxSeverity string `json:"max_severity"`
-	Issues   []string `json:"issues"`
+	Module      string   `json:"module"`
+	Files       int      `json:"files"`
+	Lines       int      `json:"lines"`
+	Findings    int      `json:"findings"`
+	MaxSeverity string   `json:"max_severity"`
+	Issues      []string `json:"issues"`
 }
 
 // SecurityRule defines a security check rule.
@@ -132,23 +134,23 @@ func ExecuteSecurityAudit(input json.RawMessage) (string, error) {
 	if err := json.Unmarshal(input, &args); err != nil {
 		return "", err
 	}
-	
+
 	// Set defaults
 	auditType := args.AuditType
 	if auditType == "" {
 		auditType = "opsec"
 	}
-	
+
 	severity := args.Severity
 	if severity == "" {
 		severity = "medium"
 	}
-	
+
 	outputFormat := args.OutputFormat
 	if outputFormat == "" {
 		outputFormat = "markdown"
 	}
-	
+
 	// Resolve framework root
 	fwRoot := args.FrameworkRoot
 	if fwRoot == "" {
@@ -157,22 +159,33 @@ func ExecuteSecurityAudit(input json.RawMessage) (string, error) {
 	if fwRoot == "" {
 		fwRoot = WorkingDir()
 	}
-	
+
+	// Update args with processed values
+	if args.AuditType == "" {
+		args.AuditType = auditType
+	}
+	if args.Severity == "" {
+		args.Severity = severity
+	}
+	if args.OutputFormat == "" {
+		args.OutputFormat = outputFormat
+	}
+
 	// Validate framework structure
 	if _, err := os.Stat(fwRoot); os.IsNotExist(err) {
 		return "", fmt.Errorf("framework directory not found: %s", fwRoot)
 	}
-	
+
 	// Perform security audit
 	result, err := performSecurityAudit(fwRoot, args)
 	if err != nil {
 		return "", fmt.Errorf("security audit failed: %w", err)
 	}
-	
+
 	// Filter by severity
 	result.Findings = filterBySeverity(result.Findings, severity)
 	updateSummaryAfterFilter(&result.Summary, result.Findings)
-	
+
 	// Format output
 	switch outputFormat {
 	case "json":
@@ -192,17 +205,17 @@ func ExecuteSecurityAudit(input json.RawMessage) (string, error) {
 func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAuditResult, error) {
 	// Get security rules for the audit type
 	rules := getSecurityRules(args.AuditType)
-	
+
 	// Scan files
 	var findings []SecurityFinding
 	var totalFiles, totalLines int
 	moduleStats := make(map[string]*ModuleSecurityStats)
-	
+
 	err := filepath.Walk(fwRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		// Only process Go source files
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") && !strings.HasSuffix(info.Name(), "_test.go") {
 			// Filter by target modules if specified
@@ -218,17 +231,17 @@ func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAudi
 					return nil
 				}
 			}
-			
+
 			// Analyze file
 			fileFindings, lines, err := analyzeFile(path, rules)
 			if err != nil {
 				return err // Continue on parse errors
 			}
-			
+
 			findings = append(findings, fileFindings...)
 			totalFiles++
 			totalLines += lines
-			
+
 			// Update module stats
 			moduleName := extractSecurityModuleName(path, fwRoot)
 			if moduleName != "" {
@@ -241,13 +254,13 @@ func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAudi
 				moduleStats[moduleName].Files++
 				moduleStats[moduleName].Lines += lines
 				moduleStats[moduleName].Findings += len(fileFindings)
-				
+
 				// Track issue types
 				for _, finding := range fileFindings {
 					if !contains(moduleStats[moduleName].Issues, finding.Type) {
 						moduleStats[moduleName].Issues = append(moduleStats[moduleName].Issues, finding.Type)
 					}
-					
+
 					// Update max severity
 					if isHigherSeverity(finding.Severity, moduleStats[moduleName].MaxSeverity) {
 						moduleStats[moduleName].MaxSeverity = finding.Severity
@@ -255,14 +268,14 @@ func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAudi
 				}
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert module stats map to slice
 	var moduleStatsList []ModuleSecurityStats
 	cleanModules := 0
@@ -272,7 +285,7 @@ func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAudi
 		}
 		moduleStatsList = append(moduleStatsList, *stats)
 	}
-	
+
 	// Sort findings by severity and file
 	sort.Slice(findings, func(i, j int) bool {
 		if findings[i].Severity != findings[j].Severity {
@@ -280,10 +293,10 @@ func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAudi
 		}
 		return findings[i].File < findings[j].File
 	})
-	
+
 	// Calculate summary
 	summary := calculateSummary(totalFiles, totalLines, findings, cleanModules)
-	
+
 	return &SecurityAuditResult{
 		Summary:     summary,
 		Findings:    findings,
@@ -296,16 +309,16 @@ func performSecurityAudit(fwRoot string, args SecurityAuditInput) (*SecurityAudi
 // analyzeFile performs security analysis on a single Go file.
 func analyzeFile(filePath string, rules []SecurityRule) ([]SecurityFinding, int, error) {
 	var findings []SecurityFinding
-	
+
 	// Read file content
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, 0, err
 	}
-	
+
 	lines := strings.Split(string(content), "\n")
 	totalLines := len(lines)
-	
+
 	// Parse Go AST for advanced analysis
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, filePath, content, parser.ParseComments)
@@ -314,22 +327,22 @@ func analyzeFile(filePath string, rules []SecurityRule) ([]SecurityFinding, int,
 		findings = append(findings, analyzeFileText(filePath, lines, rules)...)
 		return findings, totalLines, nil
 	}
-	
+
 	// AST-based analysis
 	astFindings := analyzeFileAST(filePath, node, fset, rules)
 	findings = append(findings, astFindings...)
-	
+
 	// Text-based analysis for patterns AST can't catch
 	textFindings := analyzeFileText(filePath, lines, rules)
 	findings = append(findings, textFindings...)
-	
+
 	return findings, totalLines, nil
 }
 
 // analyzeFileAST performs AST-based security analysis.
 func analyzeFileAST(filePath string, node *ast.File, fset *token.FileSet, rules []SecurityRule) []SecurityFinding {
 	var findings []SecurityFinding
-	
+
 	// Walk the AST
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch node := n.(type) {
@@ -345,20 +358,20 @@ func analyzeFileAST(filePath string, node *ast.File, fset *token.FileSet, rules 
 		}
 		return true
 	})
-	
+
 	return findings
 }
 
 // analyzeFileText performs text-based pattern matching.
 func analyzeFileText(filePath string, lines []string, rules []SecurityRule) []SecurityFinding {
 	var findings []SecurityFinding
-	
+
 	for lineNum, line := range lines {
 		for _, rule := range rules {
 			if !rule.Enabled {
 				continue
 			}
-			
+
 			if matched, _ := regexp.MatchString(rule.Pattern, line); matched {
 				finding := SecurityFinding{
 					ID:          generateFindingID(rule.ID, filePath, lineNum),
@@ -372,19 +385,19 @@ func analyzeFileText(filePath string, lines []string, rules []SecurityRule) []Se
 					Rule:        rule.ID,
 					Metadata:    map[string]string{"pattern": rule.Pattern},
 				}
-				
+
 				findings = append(findings, finding)
 			}
 		}
 	}
-	
+
 	return findings
 }
 
 // checkFunctionCall analyzes function calls for security issues.
 func checkFunctionCall(filePath string, call *ast.CallExpr, fset *token.FileSet, rules []SecurityRule) []SecurityFinding {
 	var findings []SecurityFinding
-	
+
 	// Get function name
 	var funcName string
 	switch fun := call.Fun.(type) {
@@ -393,19 +406,19 @@ func checkFunctionCall(filePath string, call *ast.CallExpr, fset *token.FileSet,
 	case *ast.SelectorExpr:
 		funcName = fmt.Sprintf("%s.%s", getExprName(fun.X), fun.Sel.Name)
 	}
-	
+
 	if funcName == "" {
 		return findings
 	}
-	
+
 	pos := fset.Position(call.Pos())
-	
+
 	// Check for dangerous functions
 	dangerousFuncs := []string{
 		"fmt.Printf", "fmt.Sprintf", "log.Printf", "fmt.Print", "fmt.Println",
 		"os.Exec", "exec.Command", "syscall.Syscall", "unsafe.Pointer",
 	}
-	
+
 	for _, dangerous := range dangerousFuncs {
 		if funcName == dangerous {
 			finding := SecurityFinding{
@@ -421,25 +434,25 @@ func checkFunctionCall(filePath string, call *ast.CallExpr, fset *token.FileSet,
 				Rule:        "dangerous_function_call",
 				Metadata:    map[string]string{"function": dangerous},
 			}
-			
+
 			findings = append(findings, finding)
 		}
 	}
-	
+
 	return findings
 }
 
 // checkStringLiteral analyzes string literals for secrets.
 func checkStringLiteral(filePath string, lit *ast.BasicLit, fset *token.FileSet, rules []SecurityRule) []SecurityFinding {
 	var findings []SecurityFinding
-	
+
 	if lit.Kind != token.STRING {
 		return findings
 	}
-	
+
 	value := strings.Trim(lit.Value, `"`)
 	pos := fset.Position(lit.Pos())
-	
+
 	// Check for potential secrets
 	secretPatterns := []struct {
 		name     string
@@ -452,7 +465,7 @@ func checkStringLiteral(filePath string, lit *ast.BasicLit, fset *token.FileSet,
 		{"Private Key", `-----BEGIN [A-Z ]+PRIVATE KEY-----`, "critical"},
 		{"Database URL", `(?i)(mysql|postgres|mongodb)://[^/\s"']+`, "high"},
 	}
-	
+
 	for _, pattern := range secretPatterns {
 		if matched, _ := regexp.MatchString(pattern.pattern, value); matched {
 			finding := SecurityFinding{
@@ -469,18 +482,18 @@ func checkStringLiteral(filePath string, lit *ast.BasicLit, fset *token.FileSet,
 				CWE:         "CWE-798",
 				Metadata:    map[string]string{"secret_type": pattern.name},
 			}
-			
+
 			findings = append(findings, finding)
 		}
 	}
-	
+
 	return findings
 }
 
 // checkGlobalDecl analyzes global declarations.
 func checkGlobalDecl(filePath string, decl *ast.GenDecl, fset *token.FileSet, rules []SecurityRule) []SecurityFinding {
 	var findings []SecurityFinding
-	
+
 	// Check for global variables with dangerous defaults
 	if decl.Tok == token.VAR {
 		for _, spec := range decl.Specs {
@@ -489,7 +502,7 @@ func checkGlobalDecl(filePath string, decl *ast.GenDecl, fset *token.FileSet, ru
 					if name.IsExported() && len(valueSpec.Values) > i {
 						// Check if global exported variable has insecure default
 						pos := fset.Position(name.Pos())
-						
+
 						finding := SecurityFinding{
 							ID:          generateFindingID("global_var", filePath, pos.Line),
 							Type:        "opsec",
@@ -503,14 +516,14 @@ func checkGlobalDecl(filePath string, decl *ast.GenDecl, fset *token.FileSet, ru
 							Rule:        "exported_global_var",
 							Metadata:    map[string]string{"variable": name.Name},
 						}
-						
+
 						findings = append(findings, finding)
 					}
 				}
 			}
 		}
 	}
-	
+
 	return findings
 }
 
@@ -545,7 +558,7 @@ func getSecurityRules(auditType string) []SecurityRule {
 			Pattern:     `\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`,
 			Enabled:     true,
 		},
-		
+
 		// Crypto rules
 		{
 			ID:          "weak_random",
@@ -574,7 +587,7 @@ func getSecurityRules(auditType string) []SecurityRule {
 			Pattern:     `(?i)(aes\.NewCipher|cipher\.NewCBCDecrypter).*["'][a-zA-Z0-9+/=]{16,}["']`,
 			Enabled:     true,
 		},
-		
+
 		// Memory safety rules
 		{
 			ID:          "unsafe_pointer",
@@ -594,7 +607,7 @@ func getSecurityRules(auditType string) []SecurityRule {
 			Pattern:     `make\(\[\]byte|copy\(.*\[\]byte|append\(.*\[\]byte`,
 			Enabled:     true,
 		},
-		
+
 		// Network rules
 		{
 			ID:          "http_client",
@@ -615,19 +628,19 @@ func getSecurityRules(auditType string) []SecurityRule {
 			Enabled:     true,
 		},
 	}
-	
+
 	// Filter by audit type
 	if auditType == "all" {
 		return allRules
 	}
-	
+
 	var filteredRules []SecurityRule
 	for _, rule := range allRules {
 		if rule.Type == auditType {
 			filteredRules = append(filteredRules, rule)
 		}
 	}
-	
+
 	return filteredRules
 }
 
@@ -642,26 +655,26 @@ func generateFindingID(ruleID, file string, line int) string {
 func determineFunctionSeverity(funcName string) string {
 	criticalFuncs := []string{"syscall.Syscall", "unsafe.Pointer"}
 	highFuncs := []string{"os.Exec", "exec.Command"}
-	
+
 	for _, critical := range criticalFuncs {
 		if funcName == critical {
 			return "critical"
 		}
 	}
-	
+
 	for _, high := range highFuncs {
 		if funcName == high {
 			return "high"
 		}
 	}
-	
+
 	return "medium"
 }
 
 // getCallCode extracts the source code for a function call.
 func getCallCode(call *ast.CallExpr, fset *token.FileSet) string {
 	start := fset.Position(call.Pos())
-	
+
 	// This is a simplified version - in practice you'd need to read the source
 	return fmt.Sprintf("Line %d", start.Line)
 }
@@ -684,12 +697,12 @@ func extractSecurityModuleName(filePath, fwRoot string) string {
 	if err != nil {
 		return ""
 	}
-	
+
 	parts := strings.Split(rel, string(filepath.Separator))
 	if len(parts) >= 4 && parts[0] == "internal" && parts[1] == "implant" && parts[2] == "modules" {
 		return parts[3]
 	}
-	
+
 	return ""
 }
 
@@ -702,7 +715,7 @@ func severityOrder(severity string) int {
 		"low":      3,
 		"info":     4,
 	}
-	
+
 	if order, exists := orders[severity]; exists {
 		return order
 	}
@@ -721,31 +734,31 @@ func isHigherSeverity(severity1, severity2 string) bool {
 func filterBySeverity(findings []SecurityFinding, minSeverity string) []SecurityFinding {
 	minOrder := severityOrder(minSeverity)
 	var filtered []SecurityFinding
-	
+
 	for _, finding := range findings {
 		if severityOrder(finding.Severity) <= minOrder {
 			filtered = append(filtered, finding)
 		}
 	}
-	
+
 	return filtered
 }
 
 // calculateSummary computes audit summary statistics.
 func calculateSummary(totalFiles, totalLines int, findings []SecurityFinding, cleanModules int) AuditSummary {
 	summary := AuditSummary{
-		TotalFiles:   totalFiles,
-		TotalLines:   totalLines,
+		TotalFiles:    totalFiles,
+		TotalLines:    totalLines,
 		TotalFindings: len(findings),
-		CleanModules: cleanModules,
+		CleanModules:  cleanModules,
 	}
-	
+
 	for _, finding := range findings {
 		if finding.Suppressed {
 			summary.Suppressed++
 			continue
 		}
-		
+
 		switch finding.Severity {
 		case "critical":
 			summary.Critical++
@@ -759,7 +772,7 @@ func calculateSummary(totalFiles, totalLines int, findings []SecurityFinding, cl
 			summary.Info++
 		}
 	}
-	
+
 	return summary
 }
 
@@ -773,13 +786,13 @@ func updateSummaryAfterFilter(summary *AuditSummary, filteredFindings []Security
 	summary.Low = 0
 	summary.Info = 0
 	summary.Suppressed = 0
-	
+
 	for _, finding := range filteredFindings {
 		if finding.Suppressed {
 			summary.Suppressed++
 			continue
 		}
-		
+
 		switch finding.Severity {
 		case "critical":
 			summary.Critical++
@@ -798,10 +811,10 @@ func updateSummaryAfterFilter(summary *AuditSummary, filteredFindings []Security
 // formatMarkdownSecurityReport formats the security audit results as markdown.
 func formatMarkdownSecurityReport(result *SecurityAuditResult, includeFixRecommendations bool) string {
 	var sb strings.Builder
-	
+
 	fmt.Fprintf(&sb, "# Crypto-Framework Security Audit Report\n\n")
 	fmt.Fprintf(&sb, "**Generated:** %s\n\n", result.Timestamp)
-	
+
 	// Executive Summary
 	fmt.Fprintf(&sb, "## Executive Summary\n\n")
 	if result.Summary.Critical > 0 || result.Summary.High > 0 {
@@ -811,7 +824,7 @@ func formatMarkdownSecurityReport(result *SecurityAuditResult, includeFixRecomme
 	} else {
 		fmt.Fprintf(&sb, "✅ **No critical security issues found**\n\n")
 	}
-	
+
 	// Summary Table
 	fmt.Fprintf(&sb, "| Metric | Count |\n")
 	fmt.Fprintf(&sb, "|--------|-------|\n")
@@ -824,7 +837,7 @@ func formatMarkdownSecurityReport(result *SecurityAuditResult, includeFixRecomme
 	fmt.Fprintf(&sb, "| Low | %d |\n", result.Summary.Low)
 	fmt.Fprintf(&sb, "| Info | %d |\n", result.Summary.Info)
 	fmt.Fprintf(&sb, "| Clean Modules | %d |\n", result.Summary.CleanModules)
-	
+
 	// Findings by Severity
 	severityOrder := []string{"critical", "high", "medium", "low", "info"}
 	for _, severity := range severityOrder {
@@ -832,10 +845,11 @@ func formatMarkdownSecurityReport(result *SecurityAuditResult, includeFixRecomme
 		if len(findings) == 0 {
 			continue
 		}
-		
+
 		emoji := getSeverityEmoji(severity)
-		fmt.Fprintf(&sb, "\n## %s %s Issues (%d)\n\n", emoji, strings.Title(severity), len(findings))
-		
+		caser := cases.Title(language.English)
+		fmt.Fprintf(&sb, "\n## %s %s Issues (%d)\n\n", emoji, caser.String(severity), len(findings))
+
 		for _, finding := range findings {
 			fmt.Fprintf(&sb, "### %s\n", finding.Title)
 			fmt.Fprintf(&sb, "**File:** %s:%d\n", finding.File, finding.Line)
@@ -844,21 +858,21 @@ func formatMarkdownSecurityReport(result *SecurityAuditResult, includeFixRecomme
 				fmt.Fprintf(&sb, "**CWE:** %s\n", finding.CWE)
 			}
 			fmt.Fprintf(&sb, "**Description:** %s\n\n", finding.Description)
-			
+
 			fmt.Fprintf(&sb, "```go\n%s\n```\n\n", finding.Code)
-			
+
 			if includeFixRecommendations && finding.Fix != "" {
 				fmt.Fprintf(&sb, "**Recommended Fix:**\n%s\n\n", finding.Fix)
 			}
 		}
 	}
-	
+
 	// Module Statistics
 	if len(result.ModuleStats) > 0 {
 		fmt.Fprintf(&sb, "\n## Module Security Overview\n\n")
 		fmt.Fprintf(&sb, "| Module | Files | Lines | Findings | Max Severity | Issue Types |\n")
 		fmt.Fprintf(&sb, "|--------|-------|-------|----------|--------------|-------------|\n")
-		
+
 		for _, stats := range result.ModuleStats {
 			maxSeverity := stats.MaxSeverity
 			if maxSeverity == "" {
@@ -869,7 +883,7 @@ func formatMarkdownSecurityReport(result *SecurityAuditResult, includeFixRecomme
 				maxSeverity, strings.Join(stats.Issues, ", "))
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -890,7 +904,7 @@ func formatSARIF(result *SecurityAuditResult) string {
 			},
 		},
 	}
-	
+
 	data, _ := json.MarshalIndent(sarif, "", "  ")
 	return string(data)
 }
@@ -935,7 +949,7 @@ func getSeverityEmoji(severity string) string {
 		"low":      "🔵",
 		"info":     "ℹ️",
 	}
-	
+
 	if emoji, exists := emojis[severity]; exists {
 		return emoji
 	}
@@ -945,7 +959,7 @@ func getSeverityEmoji(severity string) string {
 // convertFindingsToSARIF converts findings to SARIF result format.
 func convertFindingsToSARIF(findings []SecurityFinding) []map[string]interface{} {
 	var results []map[string]interface{}
-	
+
 	for _, finding := range findings {
 		result := map[string]interface{}{
 			"ruleId":  finding.Rule,
@@ -963,9 +977,9 @@ func convertFindingsToSARIF(findings []SecurityFinding) []map[string]interface{}
 				},
 			},
 		}
-		
+
 		results = append(results, result)
 	}
-	
+
 	return results
 }

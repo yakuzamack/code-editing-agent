@@ -190,6 +190,7 @@ func scaffoldMainGo(name, displayName, description string) string {
 	pkgName := strings.ReplaceAll(name, "-", "")
 
 	var sb strings.Builder
+	//nolint:staticcheck // Complex multiline template - using fmt.Sprintf for readability
 	sb.WriteString(fmt.Sprintf(`// Package %s provides the %s module.
 //
 // %s
@@ -232,8 +233,8 @@ func (m *%sModule) Description() string {
 // Run executes the module's main logic.
 // This is the entry point called by the implant scheduler.
 func (m *%sModule) Run(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-	m.logger.Info("module", "%%s", "msg", "Run() called")
-	return nil, fmt.Errorf("module %%s is not yet implemented", "%s")
+	m.logger.Info("module", "%s", "msg", "Run() called")
+	return nil, fmt.Errorf("module %s is not yet implemented")
 }
 `,
 		pkgName, displayName,
@@ -244,7 +245,7 @@ func (m *%sModule) Run(ctx context.Context, args map[string]interface{}) (interf
 		name,
 		displayName,
 		description,
-		displayName, displayName, displayName,
+		displayName, name, displayName, displayName,
 	))
 
 	return sb.String()
@@ -267,6 +268,7 @@ func scaffoldPlatformGo(name, platform string) string {
 	}
 
 	var sb strings.Builder
+	//nolint:staticcheck // Complex multiline template - using fmt.Sprintf for readability
 	sb.WriteString(fmt.Sprintf(`//go:build %s
 
 package %s
@@ -299,6 +301,7 @@ func scaffoldTestGo(name, displayName string) string {
 	pkgName := strings.ReplaceAll(name, "-", "")
 
 	var sb strings.Builder
+	//nolint:staticcheck // Complex multiline template - using fmt.Sprintf for readability
 	sb.WriteString(fmt.Sprintf(`package %s
 
 import (

@@ -62,10 +62,10 @@ type BatchFixModulesInput struct {
 
 // moduleFixPlan describes what to fix in a module.
 type moduleFixPlan struct {
-	ModuleName  string   `json:"module_name"`
-	DirPath     string   `json:"dir_path"`
-	Status      string   `json:"status"`
-	Issues      []string `json:"issues"`
+	ModuleName  string    `json:"module_name"`
+	DirPath     string    `json:"dir_path"`
+	Status      string    `json:"status"`
+	Issues      []string  `json:"issues"`
 	FilesToEdit []fileFix `json:"files_to_edit"`
 }
 
@@ -150,11 +150,11 @@ func ExecuteBatchFixModules(input json.RawMessage) (string, error) {
 
 // moduleInfo holds basic info about a discovered module.
 type moduleInfo struct {
-	Name     string
-	Dir      string
-	Status   string
-	Issues   []string
-	GoFiles  []string
+	Name    string
+	Dir     string
+	Status  string
+	Issues  []string
+	GoFiles []string
 }
 
 // discoverModules reads modules from STATUS.md or scans the framework.

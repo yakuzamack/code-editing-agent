@@ -22,9 +22,9 @@ func GoLSPDefinitions(mcpClient *Client) []tool.Definition {
 
 // FindDefinitionInput is the input for the find_definition tool.
 type FindDefinitionInput struct {
-	FilePath   string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
-	Line       int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
-	Character  int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
+	FilePath  string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
+	Line      int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
+	Character int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
 }
 
 func createFindDefinitionTool(mcpClient *Client) tool.Definition {
@@ -43,9 +43,9 @@ func createFindDefinitionTool(mcpClient *Client) tool.Definition {
 			defer cancel()
 
 			callArgs := map[string]interface{}{
-				"file_path":  args.FilePath,
-				"line":       args.Line,
-				"character":  args.Character,
+				"file_path": args.FilePath,
+				"line":      args.Line,
+				"character": args.Character,
 			}
 
 			return mcpClient.CallTool(ctx, "go-lsp", "definition", callArgs)
@@ -55,9 +55,9 @@ func createFindDefinitionTool(mcpClient *Client) tool.Definition {
 
 // FindReferencesInput is the input for the find_references tool.
 type FindReferencesInput struct {
-	FilePath   string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
-	Line       int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
-	Character  int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
+	FilePath  string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
+	Line      int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
+	Character int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
 }
 
 func createFindReferencesTool(mcpClient *Client) tool.Definition {
@@ -75,9 +75,9 @@ func createFindReferencesTool(mcpClient *Client) tool.Definition {
 			defer cancel()
 
 			callArgs := map[string]interface{}{
-				"file_path":  args.FilePath,
-				"line":       args.Line,
-				"character":  args.Character,
+				"file_path": args.FilePath,
+				"line":      args.Line,
+				"character": args.Character,
 			}
 
 			return mcpClient.CallTool(ctx, "go-lsp", "references", callArgs)
@@ -87,9 +87,9 @@ func createFindReferencesTool(mcpClient *Client) tool.Definition {
 
 // HoverInput is the input for the hover tool.
 type HoverInput struct {
-	FilePath   string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
-	Line       int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
-	Character  int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
+	FilePath  string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
+	Line      int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
+	Character int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
 }
 
 func createHoverTool(mcpClient *Client) tool.Definition {
@@ -107,9 +107,9 @@ func createHoverTool(mcpClient *Client) tool.Definition {
 			defer cancel()
 
 			callArgs := map[string]interface{}{
-				"file_path":  args.FilePath,
-				"line":       args.Line,
-				"character":  args.Character,
+				"file_path": args.FilePath,
+				"line":      args.Line,
+				"character": args.Character,
 			}
 
 			return mcpClient.CallTool(ctx, "go-lsp", "hover", callArgs)
@@ -147,10 +147,10 @@ func createDiagnosticsTool(mcpClient *Client) tool.Definition {
 
 // RenameInput is the input for the rename tool.
 type RenameInput struct {
-	FilePath   string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
-	Line       int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
-	Character  int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
-	NewName    string `json:"new_name" jsonschema:"description=New name for the symbol"`
+	FilePath  string `json:"file_path" jsonschema:"description=Absolute or workspace-relative path to the Go file"`
+	Line      int    `json:"line" jsonschema:"description=Line number (0-indexed)"`
+	Character int    `json:"character" jsonschema:"description=Column position (0-indexed)"`
+	NewName   string `json:"new_name" jsonschema:"description=New name for the symbol"`
 }
 
 func createRenameTool(mcpClient *Client) tool.Definition {
@@ -168,10 +168,10 @@ func createRenameTool(mcpClient *Client) tool.Definition {
 			defer cancel()
 
 			callArgs := map[string]interface{}{
-				"file_path":  args.FilePath,
-				"line":       args.Line,
-				"character":  args.Character,
-				"new_name":   args.NewName,
+				"file_path": args.FilePath,
+				"line":      args.Line,
+				"character": args.Character,
+				"new_name":  args.NewName,
 			}
 
 			return mcpClient.CallTool(ctx, "go-lsp", "rename", callArgs)
