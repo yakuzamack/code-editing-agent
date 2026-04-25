@@ -360,18 +360,26 @@ func analyzeModuleForFixes(fwRoot string, m moduleInfo, strategy string) *module
 		}
 	}
 
+	// Get module path from go.mod
+	modulePath, err := getModulePath(fwRoot)
+	if err != nil {
+		// If we can't read module path, fall back to hardcoded for compatibility
+		modulePath = "github.com/yakuzamack/crypto-framework"
+	}
+	loggerImportPath := fmt.Sprintf(`"%s/internal/implant/logger"`, modulePath)
+
 	// Check what's imported
 	imports := extractImportPaths(content)
 
 	// Check for missing key types
 	hasContext := hasImport(imports, `"context"`)
-	hasLogger := hasImport(imports, `"github.com/yakuzamack/crypto-framework/internal/implant/logger"`)
+	hasLogger := hasImport(imports, loggerImportPath)
 
 	if !hasContext {
 		missingImports = append(missingImports, `"context"`)
 	}
 	if !hasLogger {
-		missingImports = append(missingImports, `"github.com/yakuzamack/crypto-framework/internal/implant/logger"`)
+		missingImports = append(missingImports, loggerImportPath)
 	}
 
 	switch strategy {
@@ -449,6 +457,25 @@ func extractImportPaths(content string) []string {
 		}
 	}
 	return paths
+}
+
+// getModulePath reads go.mod to find the module path.
+func getModulePath(frameworkRoot string) (string, error) {
+	goModPath := filepath.Join(frameworkRoot, "go.mod")
+	data, err := os.ReadFile(goModPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read go.mod: %w", err)
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module")), nil
+		}
+	}
+
+	return "", fmt.Errorf("module declaration not found in go.mod")
 }
 
 // hasImport checks if an import path exists in the list.

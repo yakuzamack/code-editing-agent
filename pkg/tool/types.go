@@ -29,6 +29,9 @@ var Definitions = []Definition{
 	ScaffoldModuleDefinition,
 	FixCompileErrorsDefinition,
 	BatchFixModulesDefinition,
+	// Performance optimization tools (prevent context bloat)
+	BatchReadDefinition,
+	FastFrameworkScanDefinition,
 	// Enhanced crypto-framework management capabilities
 	SecurityCodeGenDefinition,
 	ModuleAnalyzerDefinition,

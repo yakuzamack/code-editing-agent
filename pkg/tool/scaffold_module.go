@@ -103,9 +103,15 @@ func ExecuteScaffoldModule(input json.RawMessage) (string, error) {
 
 	var files []fileSpec
 
+	// Detect module path from go.mod
+	modulePath, err := detectModulePath(fwRoot)
+	if err != nil {
+		return "", fmt.Errorf("failed to detect module path: %w", err)
+	}
+
 	// Main module file: <name>.go
 	mainFile := filepath.Join(moduleDir, args.Name+".go")
-	mainContent := scaffoldMainGo(args.Name, displayName, args.Description)
+	mainContent := scaffoldMainGo(args.Name, displayName, args.Description, modulePath)
 	files = append(files, fileSpec{path: mainFile, content: mainContent})
 
 	// Platform-specific files
@@ -185,8 +191,27 @@ func ExecuteScaffoldModule(input json.RawMessage) (string, error) {
 	return sb.String(), nil
 }
 
+// detectModulePath reads go.mod to find the module path.
+func detectModulePath(frameworkRoot string) (string, error) {
+	goModPath := filepath.Join(frameworkRoot, "go.mod")
+	data, err := os.ReadFile(goModPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read go.mod: %w", err)
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module")), nil
+		}
+	}
+
+	return "", fmt.Errorf("module declaration not found in go.mod")
+}
+
 // scaffoldMainGo generates the main module implementation file.
-func scaffoldMainGo(name, displayName, description string) string {
+func scaffoldMainGo(name, displayName, description, modulePath string) string {
 	pkgName := strings.ReplaceAll(name, "-", "")
 
 	var sb strings.Builder
@@ -200,8 +225,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yakuzamack/crypto-framework/internal/implant/config"
-	"github.com/yakuzamack/crypto-framework/internal/implant/logger"
+	"%s/internal/implant/config"
+	"%s/internal/implant/logger"
 )
 
 // %sModule is the main module struct.
@@ -240,6 +265,7 @@ func (m *%sModule) Run(ctx context.Context, args map[string]interface{}) (interf
 		pkgName, displayName,
 		description,
 		pkgName,
+		modulePath, modulePath,
 		displayName, displayName,
 		displayName, displayName, displayName, displayName, displayName,
 		name,
