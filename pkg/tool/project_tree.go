@@ -204,8 +204,9 @@ func walkTree(root, dir string, depth, maxDepth int, showFiles bool) (string, er
 	}
 
 	result := sb.String()
-	if depth == 0 && len(result) > 16000 {
-		result = result[:16000] + "\n...[truncated — use Path and Depth to narrow scope]"
+	const walkTreeMaxBytes = 16_000
+	if depth == 0 && len(result) > walkTreeMaxBytes {
+		result = result[:walkTreeMaxBytes] + "\n...[truncated — use Path and Depth to narrow scope]"
 	}
 	return result, nil
 }

@@ -78,6 +78,10 @@ func (a *agent) Run(ctx context.Context) error {
 			conversation = append(conversation, userMessage)
 		}
 
+			// Trim conversation to stay within model context window before inference.
+		// Budget is 60K chars (~15K tokens) to leave room for tool definitions + response.
+		conversation = trimConversation(conversation, 60_000)
+
 		// Always pass tools — avoids NVIDIA 502 on plain streaming calls
 		message, err := a.runInference(ctx, conversation, true)
 		if err != nil {
@@ -85,9 +89,13 @@ func (a *agent) Run(ctx context.Context) error {
 		}
 		conversation = append(conversation, *message)
 
+		const maxToolResultChars = 20_000
 		toolResults := []deepseek.ChatCompletionMessage{}
 		for _, toolCall := range message.ToolCalls {
 			result := a.executeTool(toolCall.ID, toolCall.Function.Name, toolCall.Function.Arguments)
+			if len(result.Content) > maxToolResultChars {
+				result.Content = result.Content[:maxToolResultChars] + "\n[...output truncated, use more specific query to see more...]"
+			}
 			toolResults = append(toolResults, result)
 		}
 
@@ -100,6 +108,41 @@ func (a *agent) Run(ctx context.Context) error {
 		conversation = append(conversation, toolResults...)
 	}
 	return nil
+}
+
+// trimConversation removes old messages when the total content size exceeds maxChars,
+// always preserving the system message at index 0 and the most recent messages.
+// If a single remaining message is still too large it is truncated in-place.
+func trimConversation(conversation []deepseek.ChatCompletionMessage, maxChars int) []deepseek.ChatCompletionMessage {
+	const truncSuffix = "\n[...trimmed to fit context window...]"
+
+	measure := func(msgs []deepseek.ChatCompletionMessage) int {
+		n := 0
+		for _, m := range msgs {
+			n += len(m.Content)
+			for _, tc := range m.ToolCalls {
+				n += len(tc.Function.Arguments)
+			}
+		}
+		return n
+	}
+
+	// Phase 1: drop oldest non-system messages.
+	for len(conversation) > 2 && measure(conversation) > maxChars {
+		conversation = append(conversation[:1], conversation[2:]...)
+	}
+
+	// Phase 2: if a single non-system message still exceeds the budget, truncate it.
+	for i := 1; i < len(conversation) && measure(conversation) > maxChars; i++ {
+		excess := measure(conversation) - maxChars
+		if len(conversation[i].Content) > excess+len(truncSuffix) {
+			conversation[i].Content = conversation[i].Content[:len(conversation[i].Content)-excess] + truncSuffix
+		} else if len(conversation[i].Content) > len(truncSuffix) {
+			conversation[i].Content = conversation[i].Content[:len(truncSuffix)] + truncSuffix
+		}
+	}
+
+	return conversation
 }
 
 // runInference runs the inference and returns the message.

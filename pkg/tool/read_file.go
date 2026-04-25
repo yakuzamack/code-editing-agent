@@ -2,6 +2,7 @@ package tool
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -21,6 +22,8 @@ type ReadFileInput struct {
 // ReadFileInputSchema is the schema for the ReadFileInput struct.
 var ReadFileInputSchema = GenerateSchema[ReadFileInput]()
 
+const readFileMaxBytes = 50_000
+
 // ReadFile reads the contents of a file.
 func ReadFile(input json.RawMessage) (string, error) {
 	readFileInput := ReadFileInput{}
@@ -37,6 +40,10 @@ func ReadFile(input json.RawMessage) (string, error) {
 	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return "", err
+	}
+	if len(content) > readFileMaxBytes {
+		return fmt.Sprintf("%s\n[...file truncated at %d bytes — use smart_read_file with line_start/line_end or symbol to read specific sections...]",
+			content[:readFileMaxBytes], readFileMaxBytes), nil
 	}
 	return string(content), nil
 }

@@ -29,6 +29,11 @@ var Definitions = []Definition{
 	ScaffoldModuleDefinition,
 	FixCompileErrorsDefinition,
 	BatchFixModulesDefinition,
+	// Enhanced crypto-framework management capabilities
+	SecurityCodeGenDefinition,
+	ModuleAnalyzerDefinition,
+	FrameworkSessionDefinition,
+	SecurityAuditDefinition,
 }
 
 // GenerateSchema generates a schema from a struct.
