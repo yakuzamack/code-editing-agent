@@ -6,13 +6,14 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // SecurityAuditDefinition is the definition for the security_audit tool.
