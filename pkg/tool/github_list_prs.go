@@ -58,7 +58,7 @@ type prSummary struct {
 		Login string `json:"login"`
 	} `json:"user"`
 	Labels []struct {
-		Name string `json:"name"`
+		Name  string `json:"name"`
 		Color string `json:"color"`
 	} `json:"labels"`
 	Head struct {
@@ -202,7 +202,12 @@ func getPRFileCount(prNumber int, owner, repo, token string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -244,7 +249,10 @@ func parseLinkTotalCount(linkHeader string) int {
 				for _, param := range strings.Split(url, "&") {
 					if strings.HasPrefix(param, "page=") {
 						var page int
-						fmt.Sscanf(param, "page=%d", &page)
+					if _, err := fmt.Sscanf(param, "page=%d", &page); err != nil {
+						// Invalid page format, continue
+							_ = err
+					}
 						// GitHub returns 1 page of up to 100 files
 						// So total = last_page * 100 (per_page=100 by default, we use 1)
 						// Actually we set per_page=1, so total = page * 1

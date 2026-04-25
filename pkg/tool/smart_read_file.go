@@ -74,7 +74,7 @@ var (
 func SmartReadFile(input json.RawMessage) (string, error) {
 	var params SmartReadFileInput
 	if err := json.Unmarshal(input, &params); err != nil {
-		return "", fmt.Errorf("smart_read_file: invalid input: %w.\nIf you see a JSON parse error, try using read_file instead which has a simpler input format.", err)
+		return "", fmt.Errorf("smart_read_file: invalid input: %w\nIf you see a JSON parse error, try using read_file instead which has a simpler input format", err)
 	}
 
 	if params.Path == "" {
@@ -361,5 +361,3 @@ func readFullFile(filePath string, lines []string, maxLines int) (string, error)
 
 	return sb.String(), nil
 }
-
-

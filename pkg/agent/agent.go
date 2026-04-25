@@ -78,7 +78,7 @@ func (a *agent) Run(ctx context.Context) error {
 			conversation = append(conversation, userMessage)
 		}
 
-			// Trim conversation to stay within model context window before inference.
+		// Trim conversation to stay within model context window before inference.
 		// Budget is 60K chars (~15K tokens) to leave room for tool definitions + response.
 		conversation = trimConversation(conversation, 60_000)
 
@@ -149,11 +149,11 @@ func trimConversation(conversation []deepseek.ChatCompletionMessage, maxChars in
 func (a *agent) runInference(ctx context.Context, conversation []deepseek.ChatCompletionMessage, includeTools bool) (*deepseek.ChatCompletionMessage, error) {
 	if includeTools {
 		request := &deepseek.StreamChatCompletionRequest{
-			Model:    a.model,
-			Messages: conversation,
-			Stream:   true,
+			Model:     a.model,
+			Messages:  conversation,
+			Stream:    true,
 			MaxTokens: 4096,
-			Tools:    a.tools,
+			Tools:     a.tools,
 		}
 
 		stream, err := a.client.CreateChatCompletionStream(ctx, request)
@@ -370,31 +370,31 @@ func (a *agent) executeTool(id, name, args string) deepseek.ChatCompletionMessag
 		// If smart_read_file fails with JSON parse error, try graceful degradation
 		if name == "smart_read_file" && strings.Contains(err.Error(), "invalid input") {
 			var partial struct {
-				Path      string `json:"path"`
-				LineStart int    `json:"line_start"`
-				LineEnd   int    `json:"line_end"`
-				Symbol    string `json:"symbol"`
-				Summary   bool   `json:"summary"`
-				MaxLines  int    `json:"max_lines"`
-				ContextLines int `json:"context_lines"`
+				Path         string `json:"path"`
+				LineStart    int    `json:"line_start"`
+				LineEnd      int    `json:"line_end"`
+				Symbol       string `json:"symbol"`
+				Summary      bool   `json:"summary"`
+				MaxLines     int    `json:"max_lines"`
+				ContextLines int    `json:"context_lines"`
 			}
 			if unmarshalErr := json.Unmarshal(json.RawMessage(args), &partial); unmarshalErr == nil && partial.Path != "" {
 				// Partial JSON was parseable enough — build a minimal valid call
 				minimal, _ := json.Marshal(struct {
-					Path      string `json:"path"`
-					LineStart int    `json:"line_start,omitempty"`
-					LineEnd   int    `json:"line_end,omitempty"`
-					Symbol    string `json:"symbol,omitempty"`
-					Summary   bool   `json:"summary,omitempty"`
-					MaxLines  int    `json:"max_lines,omitempty"`
-					ContextLines int `json:"context_lines,omitempty"`
+					Path         string `json:"path"`
+					LineStart    int    `json:"line_start,omitempty"`
+					LineEnd      int    `json:"line_end,omitempty"`
+					Symbol       string `json:"symbol,omitempty"`
+					Summary      bool   `json:"summary,omitempty"`
+					MaxLines     int    `json:"max_lines,omitempty"`
+					ContextLines int    `json:"context_lines,omitempty"`
 				}{
-					Path:        partial.Path,
-					LineStart:   partial.LineStart,
-					LineEnd:     partial.LineEnd,
-					Symbol:      partial.Symbol,
-					Summary:     partial.Summary,
-					MaxLines:    partial.MaxLines,
+					Path:         partial.Path,
+					LineStart:    partial.LineStart,
+					LineEnd:      partial.LineEnd,
+					Symbol:       partial.Symbol,
+					Summary:      partial.Summary,
+					MaxLines:     partial.MaxLines,
 					ContextLines: partial.ContextLines,
 				})
 				fmt.Printf("\u001b[93m[Fallback]\u001b[0m Retrying smart_read_file with reconstructed arguments\n")

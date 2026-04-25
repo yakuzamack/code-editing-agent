@@ -41,25 +41,25 @@ Requires CRYPTOFRAMEWORK_API_SECRET in .env or environment.`,
 type FrameworkSessionInput struct {
 	// Operation specifies what to do (list_sessions, session_info, execute_task, task_history, logs, health).
 	Operation string `json:"operation" jsonschema:"description=Operation: list_sessions, session_info, execute_task, task_history, logs, health."`
-	
+
 	// SessionID targets a specific session (required for session-specific operations).
 	SessionID string `json:"session_id,omitempty" jsonschema:"description=Session ID for session-specific operations."`
-	
+
 	// Command is the task to execute (required for execute_task operation).
 	Command string `json:"command,omitempty" jsonschema:"description=Command to execute (for execute_task operation)."`
-	
+
 	// Module specifies the implant module to use for the task.
 	Module string `json:"module,omitempty" jsonschema:"description=Implant module name (e.g., crypto, wallet_exploit, system)."`
-	
+
 	// AdminURL overrides the default admin API URL.
 	AdminURL string `json:"admin_url,omitempty" jsonschema:"description=Admin API base URL. Defaults to http://127.0.0.1:8443."`
-	
+
 	// ApiSecret overrides the API secret from environment.
 	ApiSecret string `json:"api_secret,omitempty" jsonschema:"description=API secret. Falls back to CRYPTOFRAMEWORK_API_SECRET env var."`
-	
+
 	// Timeout sets the request timeout in seconds.
 	Timeout int `json:"timeout,omitempty" jsonschema:"description=Request timeout in seconds. Default: 30."`
-	
+
 	// Format controls output format (json, table, summary).
 	Format string `json:"format,omitempty" jsonschema:"description=Output format: json, table, summary. Default: table."`
 }
@@ -100,12 +100,12 @@ type TaskInfo struct {
 
 // HealthStatus contains framework health information.
 type HealthStatus struct {
-	Status       string            `json:"status"`
-	Version      string            `json:"version"`
-	Uptime       string            `json:"uptime"`
-	ActiveSessions int             `json:"active_sessions"`
-	TotalSessions  int             `json:"total_sessions"`
-	TasksExecuted  int             `json:"tasks_executed"`
+	Status         string            `json:"status"`
+	Version        string            `json:"version"`
+	Uptime         string            `json:"uptime"`
+	ActiveSessions int               `json:"active_sessions"`
+	TotalSessions  int               `json:"total_sessions"`
+	TasksExecuted  int               `json:"tasks_executed"`
 	Listeners      []string          `json:"listeners"`
 	Modules        []string          `json:"modules"`
 	Resources      map[string]string `json:"resources"`
@@ -117,30 +117,30 @@ func ExecuteFrameworkSession(input json.RawMessage) (string, error) {
 	if err := json.Unmarshal(input, &args); err != nil {
 		return "", err
 	}
-	
+
 	if args.Operation == "" {
 		return "", fmt.Errorf("operation is required: list_sessions, session_info, execute_task, task_history, logs, health")
 	}
-	
+
 	// Set defaults
 	adminURL := args.AdminURL
 	if adminURL == "" {
 		adminURL = "http://127.0.0.1:8443"
 	}
-	
+
 	// Remove trailing slash
 	adminURL = strings.TrimSuffix(adminURL, "/")
-	
+
 	timeout := args.Timeout
 	if timeout <= 0 {
 		timeout = 30
 	}
-	
+
 	format := args.Format
 	if format == "" {
 		format = "table"
 	}
-	
+
 	// Get API secret
 	apiSecret := args.ApiSecret
 	if apiSecret == "" {
@@ -149,16 +149,16 @@ func ExecuteFrameworkSession(input json.RawMessage) (string, error) {
 			apiSecret = os.Getenv("VIRGA_AUTH_SECRET")
 		}
 	}
-	
+
 	if apiSecret == "" {
 		return "", fmt.Errorf("API secret required. Set CRYPTOFRAMEWORK_API_SECRET env var or provide api_secret parameter")
 	}
-	
+
 	// Create HTTP client
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
-	
+
 	// Execute operation
 	switch args.Operation {
 	case "list_sessions":
@@ -196,26 +196,31 @@ func listSessions(client *http.Client, adminURL, apiSecret, format string) (stri
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+apiSecret)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error but don't override main error
+			_ = closeErr
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var sessions []SessionInfo
 	if err := json.NewDecoder(resp.Body).Decode(&sessions); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return formatSessionList(sessions, format), nil
 }
 
@@ -225,26 +230,31 @@ func getSessionInfo(client *http.Client, adminURL, apiSecret, sessionID, format 
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+apiSecret)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error but don't override main error
+			_ = closeErr
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var session SessionInfo
 	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return formatSessionInfo(session, format), nil
 }
 
@@ -253,40 +263,45 @@ func executeTask(client *http.Client, adminURL, apiSecret, sessionID, command, m
 	taskReq := map[string]interface{}{
 		"command": command,
 	}
-	
+
 	if module != "" {
 		taskReq["module"] = module
 	}
-	
+
 	reqBody, err := json.Marshal(taskReq)
 	if err != nil {
 		return "", err
 	}
-	
+
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/sessions/%s/tasks", adminURL, sessionID), bytes.NewBuffer(reqBody))
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+apiSecret)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error but don't override main error
+			_ = closeErr
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var task TaskInfo
 	if err := json.NewDecoder(resp.Body).Decode(&task); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return formatTaskInfo(task, format), nil
 }
 
@@ -296,26 +311,31 @@ func getTaskHistory(client *http.Client, adminURL, apiSecret, sessionID, format 
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+apiSecret)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error but don't override main error
+			_ = closeErr
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var tasks []TaskInfo
 	if err := json.NewDecoder(resp.Body).Decode(&tasks); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return formatTaskHistory(tasks, format), nil
 }
 
@@ -325,31 +345,36 @@ func getSessionLogs(client *http.Client, adminURL, apiSecret, sessionID, format 
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+apiSecret)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error but don't override main error
+			_ = closeErr
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	// Logs might be returned as plain text or structured JSON
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
-	
+
 	if format == "json" {
 		return string(body), nil
 	}
-	
+
 	return fmt.Sprintf("## Session Logs: %s\n\n```\n%s\n```", sessionID, string(body)), nil
 }
 
@@ -359,26 +384,31 @@ func getFrameworkHealth(client *http.Client, adminURL, apiSecret, format string)
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+apiSecret)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log close error but don't override main error
+			_ = closeErr
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var health HealthStatus
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return formatHealthStatus(health, format), nil
 }
 
@@ -390,27 +420,27 @@ func formatSessionList(sessions []SessionInfo, format string) string {
 		data, _ := json.MarshalIndent(sessions, "", "  ")
 		return string(data)
 	}
-	
+
 	if len(sessions) == 0 {
 		return "No active sessions found."
 	}
-	
+
 	if format == "summary" {
 		return fmt.Sprintf("Found %d active sessions", len(sessions))
 	}
-	
+
 	// Table format
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## Active Sessions (%d)\n\n", len(sessions))
 	fmt.Fprintf(&sb, "| ID | Status | OS | Hostname | User | Last Seen | Tasks |\n")
 	fmt.Fprintf(&sb, "|----|--------|----|---------|----|-----------|-------|\n")
-	
+
 	for _, session := range sessions {
 		fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s | %s | %d/%d |\n",
 			session.ID[:8]+"...", session.Status, session.OS, session.Hostname,
 			session.Username, session.LastSeen, session.TasksPending, session.TasksTotal)
 	}
-	
+
 	return sb.String()
 }
 
@@ -420,7 +450,7 @@ func formatSessionInfo(session SessionInfo, format string) string {
 		data, _ := json.MarshalIndent(session, "", "  ")
 		return string(data)
 	}
-	
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## Session Details: %s\n\n", session.ID)
 	fmt.Fprintf(&sb, "**Status:** %s\n", session.Status)
@@ -433,14 +463,14 @@ func formatSessionInfo(session SessionInfo, format string) string {
 	fmt.Fprintf(&sb, "**First Seen:** %s\n", session.FirstSeen)
 	fmt.Fprintf(&sb, "**Last Seen:** %s\n", session.LastSeen)
 	fmt.Fprintf(&sb, "**Tasks:** %d total, %d pending\n", session.TasksTotal, session.TasksPending)
-	
+
 	if len(session.Metadata) > 0 {
 		fmt.Fprintf(&sb, "\n**Metadata:**\n")
 		for key, value := range session.Metadata {
 			fmt.Fprintf(&sb, "  - %s: %s\n", key, value)
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -450,7 +480,7 @@ func formatTaskInfo(task TaskInfo, format string) string {
 		data, _ := json.MarshalIndent(task, "", "  ")
 		return string(data)
 	}
-	
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## Task Executed\n\n")
 	fmt.Fprintf(&sb, "**ID:** %s\n", task.ID)
@@ -459,19 +489,19 @@ func formatTaskInfo(task TaskInfo, format string) string {
 	fmt.Fprintf(&sb, "**Module:** %s\n", task.Module)
 	fmt.Fprintf(&sb, "**Status:** %s\n", task.Status)
 	fmt.Fprintf(&sb, "**Created:** %s\n", task.CreatedAt)
-	
+
 	if task.CompletedAt != "" {
 		fmt.Fprintf(&sb, "**Completed:** %s\n", task.CompletedAt)
 	}
-	
+
 	if task.Output != "" {
 		fmt.Fprintf(&sb, "\n**Output:**\n```\n%s\n```\n", task.Output)
 	}
-	
+
 	if task.Error != "" {
 		fmt.Fprintf(&sb, "\n**Error:**\n```\n%s\n```\n", task.Error)
 	}
-	
+
 	return sb.String()
 }
 
@@ -481,16 +511,16 @@ func formatTaskHistory(tasks []TaskInfo, format string) string {
 		data, _ := json.MarshalIndent(tasks, "", "  ")
 		return string(data)
 	}
-	
+
 	if len(tasks) == 0 {
 		return "No tasks found for this session."
 	}
-	
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## Task History (%d tasks)\n\n", len(tasks))
 	fmt.Fprintf(&sb, "| ID | Module | Command | Status | Created | Completed |\n")
 	fmt.Fprintf(&sb, "|----|--------|---------|--------|---------|----------|\n")
-	
+
 	for _, task := range tasks {
 		completedAt := task.CompletedAt
 		if completedAt == "" {
@@ -500,7 +530,7 @@ func formatTaskHistory(tasks []TaskInfo, format string) string {
 			task.ID[:8]+"...", task.Module, truncateString(task.Command, 20),
 			task.Status, task.CreatedAt, completedAt)
 	}
-	
+
 	return sb.String()
 }
 
@@ -510,7 +540,7 @@ func formatHealthStatus(health HealthStatus, format string) string {
 		data, _ := json.MarshalIndent(health, "", "  ")
 		return string(data)
 	}
-	
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## Framework Health Status\n\n")
 	fmt.Fprintf(&sb, "**Status:** %s\n", health.Status)
@@ -518,22 +548,22 @@ func formatHealthStatus(health HealthStatus, format string) string {
 	fmt.Fprintf(&sb, "**Uptime:** %s\n", health.Uptime)
 	fmt.Fprintf(&sb, "**Sessions:** %d active, %d total\n", health.ActiveSessions, health.TotalSessions)
 	fmt.Fprintf(&sb, "**Tasks Executed:** %d\n", health.TasksExecuted)
-	
+
 	if len(health.Listeners) > 0 {
 		fmt.Fprintf(&sb, "**Listeners:** %s\n", strings.Join(health.Listeners, ", "))
 	}
-	
+
 	if len(health.Modules) > 0 {
 		fmt.Fprintf(&sb, "**Available Modules:** %s\n", strings.Join(health.Modules, ", "))
 	}
-	
+
 	if len(health.Resources) > 0 {
 		fmt.Fprintf(&sb, "\n**Resources:**\n")
 		for key, value := range health.Resources {
 			fmt.Fprintf(&sb, "  - %s: %s\n", key, value)
 		}
 	}
-	
+
 	return sb.String()
 }
 

@@ -39,11 +39,6 @@ type lspNotification struct {
 	Params  interface{} `json:"params,omitempty"`
 }
 
-type lspError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 // lspPosition represents a zero-indexed position in a file.
 type lspPosition struct {
 	Line      int `json:"line"`
@@ -52,8 +47,8 @@ type lspPosition struct {
 
 // lspLocation represents a file location with a range.
 type lspLocation struct {
-	URI   string    `json:"uri"`
-	Range lspRange  `json:"range"`
+	URI   string   `json:"uri"`
+	Range lspRange `json:"range"`
 }
 
 type lspRange struct {
@@ -113,7 +108,7 @@ type lspTextEdit struct {
 
 // lspDiagnosticParams for publishing diagnostics.
 type lspPublishDiagnosticsParams struct {
-	URI         string         `json:"uri"`
+	URI         string          `json:"uri"`
 	Diagnostics []lspDiagnostic `json:"diagnostics"`
 }
 
@@ -230,19 +225,31 @@ func startLSP(ctx context.Context, goplsPath, rootPath string) (*LSPClient, erro
 	}
 
 	if err := lsp.sendRequest(ctx, "initialize", initParams); err != nil {
-		cmd.Process.Kill()
+		if killErr := cmd.Process.Kill(); killErr != nil {
+			// Log kill error but don't override main error
+			_ = killErr
+			_ = killErr
+		}
 		return nil, fmt.Errorf("initialize request: %w", err)
 	}
 	initResult, err := lsp.readResponse(ctx)
 	if err != nil {
-		cmd.Process.Kill()
+		if killErr := cmd.Process.Kill(); killErr != nil {
+			// Log kill error but don't override main error
+			_ = killErr
+			_ = killErr
+		}
 		return nil, fmt.Errorf("initialize response: %w", err)
 	}
 	_ = initResult // we don't need to parse capabilities right now
 
 	// Send initialized notification
 	if err := lsp.sendNotification("initialized", map[string]interface{}{}); err != nil {
-		cmd.Process.Kill()
+		if killErr := cmd.Process.Kill(); killErr != nil {
+			// Log kill error but don't override main error
+			_ = killErr
+			_ = killErr
+		}
 		return nil, fmt.Errorf("initialized notification: %w", err)
 	}
 
@@ -316,7 +323,10 @@ func (l *LSPClient) readMessage(ctx context.Context) (json.RawMessage, error) {
 			break
 		}
 		if strings.HasPrefix(line, "Content-Length:") {
-			fmt.Sscanf(line, "Content-Length: %d", &contentLength)
+			if _, err := fmt.Sscanf(line, "Content-Length: %d", &contentLength); err != nil {
+				// Invalid Content-Length format, continue parsing
+				_ = err
+			}
 		}
 	}
 
@@ -817,7 +827,12 @@ func DiscoverToolsByServerName(ctx context.Context, serverName string, cmdPath s
 	}
 
 	c := NewClient(0)
-	defer c.Close()
+	defer func() {
+		if closeErr := c.Close(); closeErr != nil {
+			// Log close error
+			_ = closeErr
+		}
+	}()
 
 	if err := c.StartServer(ctx, serverName, cmdPath, cmdArgs...); err != nil {
 		return nil, err

@@ -297,7 +297,7 @@ func formatCompileErrorReport(fwRoot string, errors []compileErrorWithContext, f
 	var sb strings.Builder
 
 	sb.WriteString("## ⚠️ Compile Errors Detected\n\n")
-	sb.WriteString(fmt.Sprintf("Found **%d** error(s):\n\n", len(errors)))
+	fmt.Fprintf(&sb, "Found **%d** error(s):\n\n", len(errors))
 
 	// Group by file
 	byFile := make(map[string][]compileErrorWithContext)
